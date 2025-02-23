@@ -17,8 +17,12 @@ FROM base as tensorrt_llm_builder
 WORKDIR /workspace
 RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git && \
     cd TensorRT-LLM && \
+    # Remove the problematic flashinfer-python line
+    sed -i '/flashinfer-python/d' requirements.txt && \
     git submodule update --init --recursive && \
     pip3 install -r requirements.txt && \
+    # Install flashinfer-python separately using the direct URL with egg fragment
+    pip3 install "flashinfer-python @ https://files.pythonhosted.org/packages/6c/e9/5d6adcf888922a17c6fc52a0e5bed78785239af1219f41e1073b063a07ff/flashinfer_python-0.2.0.post1.tar.gz#egg=flashinfer-python" && \
     python3 scripts/build_wheel.py --build_dir=build && \
     pip3 install build/tensorrt_llm*.whl
 
