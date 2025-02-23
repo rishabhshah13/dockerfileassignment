@@ -1,5 +1,5 @@
 # Stage 1: Base image with CUDA requirements
-FROM nvidia/cuda:12.1.1-devel-ubuntu22.04 as base
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Build TensorRT-LLM
-FROM base as tensorrt_llm_builder
+FROM base AS tensorrt_llm_builder
 
 WORKDIR /workspace
 RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git && \
@@ -28,7 +28,7 @@ RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git && \
     pip3 install build/tensorrt_llm*.whl
 
 # Stage 3: Model conversion and optimization
-FROM tensorrt_llm_builder as model_builder
+FROM tensorrt_llm_builder AS model_builder
 
 WORKDIR /workspace
 
@@ -61,7 +61,7 @@ RUN trtllm-build \
     --use_inflight_batching true
 
 # Stage 4: Triton Server Runtime
-FROM nvcr.io/nvidia/tritonserver:24.02-py3 as runtime
+FROM nvcr.io/nvidia/tritonserver:24.02-py3 AS runtime
 
 WORKDIR /workspace
 
