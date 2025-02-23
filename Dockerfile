@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     build-essential \
     wget \
+    libopenmpi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Build TensorRT-LLM
