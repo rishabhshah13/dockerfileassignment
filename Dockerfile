@@ -26,9 +26,14 @@ RUN python build_visual_engine.py --model_type mllama \
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS triton-builder
 WORKDIR /app
 
-# Install Git LFS and additional build tools
-RUN apt-get update && apt-get install -y git-lfs build-essential cmake curl && \
-    git lfs install
+# Install Git LFS, build tools, and other dependencies
+RUN apt-get update && apt-get install -y \
+    git-lfs \
+    build-essential \
+    cmake \
+    curl \
+    python3-dev \
+    && git lfs install
 
 # Clone tensorrtllm_backend with submodules
 RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend /tensorrtllm_backend --recursive
@@ -38,15 +43,10 @@ WORKDIR /tensorrtllm_backend
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Build the backend without Docker-in-Docker
-# Use build.py directly with necessary arguments
-RUN python3 build.py \
-    --enable-gpu \
-    --build-type=Release \
-    --target-platform=linux/amd64 \
-    --tmp-dir=/tmp \
-    --install-dir=/opt/tritonserver/backends/tensorrtllm_backend \
-    --no-container-build
+# Build the backend using build.sh with local build (no Docker-in-Docker)
+# Ensure build.sh is executable and provide necessary arguments
+RUN chmod +x build.sh && \
+    ./build.sh --enable-gpu --build-type=Release --no-container-build
 
 # Stage 3: Runtime Stage
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
