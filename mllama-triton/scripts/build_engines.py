@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import os
 import subprocess
+import shutil
 import argparse
-from transformers import AutoModelForVision2Seq, AutoTokenizer
+from transformers import AutoModelForVision2Seq, AutoTokenizer, AutoProcessor
 from huggingface_hub import snapshot_download
 
 def run_command(command, error_msg):
@@ -12,16 +13,21 @@ def run_command(command, error_msg):
 
 def tie_model_weights(model_path, output_path):
     print("Tying model weights...")
-    # Load model and tokenizer
+    # Load model, tokenizer, and processor
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForVision2Seq.from_pretrained(model_path, device_map="auto")
+    processor = AutoProcessor.from_pretrained(model_path)
 
     # Tie weights (for LLaMA, typically embedding and output layers)
     model.tie_weights()
 
-    # Save the model with tied weights
+    # Create output directory
+    os.makedirs(output_path, exist_ok=True)
+
+    # Save model, tokenizer, and processor
     model.save_pretrained(output_path)
     tokenizer.save_pretrained(output_path)
+    processor.save_pretrained(output_path)  # Save preprocessor_config.json
     print("Model weights tied and saved successfully!")
 
 def build_vision_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
