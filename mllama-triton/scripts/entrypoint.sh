@@ -1,10 +1,8 @@
 #!/bin/bash
 set -e
 
-# Ensure HPCX environment is isolated
-export LD_LIBRARY_PATH=/opt/hpcx/ompi/lib:/opt/hpcx/ucc/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=/usr/local/lib/python3.12/dist-packages:$PYTHONPATH
-export LD_PRELOAD=""
+# Force UCX library path priority
+export LD_LIBRARY_PATH=/opt/hpcx/ucx/lib:$LD_LIBRARY_PATH
 
 # Check if model and engines exist
 if [ ! -d "/models/Llama-3.2-11B-Vision" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
