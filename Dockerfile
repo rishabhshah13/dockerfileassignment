@@ -23,7 +23,7 @@ RUN mkdir -p /models/Llama-3.2-11B-Vision && \
     --local-dir /models/Llama-3.2-11B-Vision \
     --token ${HF_TOKEN}
 
-Build the TensorRT-LLM engine with INT8 precision
+# Build the TensorRT-LLM engine with INT8 precision
 WORKDIR /TensorRT-LLM/examples/multimodal
 RUN python build_visual_engine.py \
     --model_type mllama \
