@@ -55,6 +55,12 @@ RUN echo "Cache bust: $CACHEBUST" && echo $(ls -a)
 #     --no-container-build \
 #     --build-dir=/tmp/build \
 #     --install-dir=/opt/tritonserver/backends/tensorrtllm_backend
+
+# Build the backend using build.sh with local build (no Docker-in-Docker)
+# Ensure build.sh is executable and provide necessary arguments
+RUN chmod +x build.sh && \
+    ./build.sh --enable-gpu --build-type=Release --no-container-build
+
 # # Stage 3: Runtime Stage
 # FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
 # WORKDIR /app
