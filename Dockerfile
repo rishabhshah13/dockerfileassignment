@@ -26,6 +26,10 @@ RUN python build_visual_engine.py --model_type mllama \
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS triton-builder
 WORKDIR /app
 
+# Install required dependencies
+RUN apt-get update && apt-get install -y docker.io
+RUN pip install requests
+
 RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend /tensorrtllm_backend
 WORKDIR /tensorrtllm_backend
 RUN ./build.sh
