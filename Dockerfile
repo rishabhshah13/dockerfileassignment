@@ -45,17 +45,22 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 # Build the backend using build.sh with local build (no Docker-in-Docker)
-# Thoroughly patch build.sh to remove all Docker dependencies
+# Thoroughly patch build.sh to remove all Docker dependencies and handle --build-arg
 RUN chmod +x build.sh && \
-    # Comment out all Docker-related commands (e.g., docker, docker build, docker pull, etc.)
+    # Comment out all Docker-related commands and handle --build-arg
     sed -i 's/docker run/#docker run/g' build.sh && \
     sed -i 's/docker build/#docker build/g' build.sh && \
     sed -i 's/docker pull/#docker pull/g' build.sh && \
     sed -i 's/docker push/#docker push/g' build.sh && \
+    # Remove or comment out --build-arg and other standalone arguments
+    sed -i 's/--build-arg/#--build-arg/g' build.sh && \
     # Ensure build.sh proceeds with a local build
     ./build.sh --enable-gpu --build-type=Release --no-container-build
 
-# If build.sh fails, try building with CMake directly (alternative approach)
+# If build.sh fails, try building with build.py directly (if available) with correct arguments
+# RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
+
+# Alternative: Use CMake directly if build.sh/build.py fail
 # RUN mkdir build && cd build && \
 #     cmake .. -DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release && \
 #     make -j$(nproc) install
