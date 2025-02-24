@@ -1,11 +1,11 @@
-# Stage 1: Builder Stage
-FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3 AS builder
+# Single Stage: Triton Server with TensorRT-LLM Support
+FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3
 WORKDIR /app
 
 # Install dependencies for model download and mllama engine building
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git python3-pip && \
-    pip3 install --upgrade pip huggingface_hub transformers torch timm && \
+    pip3 install --upgrade pip huggingface_hub transformers torch timm numpy grpcio-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # Download LLaMA 3.2 11B Vision Instruct model
@@ -15,44 +15,43 @@ RUN mkdir -p /models/Llama-3.2-11B-Vision && \
     --local-dir /models/Llama-3.2-11B-Vision \
     --token ${HF_TOKEN}
 
-# Clone TensorRT-LLM repo to get build_visual_engine.py
+# Clone TensorRT-LLM repo for build_visual_engine.py
 RUN git clone --branch v0.10.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm
-WORKDIR /app/tensorrt_llm/examples/multimodal
-RUN python3 build_visual_engine.py \
-    --model_type mllama \
-    --model_path /models/Llama-3.2-11B-Vision \
-    --output_dir /model_engine \
-    --dtype int8 \
-    --max_input_len 2048 \
-    --max_output_len 512
 
-# Clone the official tensorrtllm_backend for Triton templates
+# Clone tensorrtllm_backend for Triton templates
 RUN git clone --branch v0.10.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
 
-# Stage 2: Runtime Stage
-FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3 AS runtime
-WORKDIR /app
+# Create engine output directory and model repository
+RUN mkdir -p /model_engine && \
+    mkdir -p /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1 && \
+    cp -r /app/tensorrtllm_backend/all_models/inflight_batcher_llm/* /opt/tritonserver/models/inflight_batcher_llm/ && \
+    python3 /opt/tritonserver/tensorrt_llm/tools/fill_template.py -i /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/config.pbtxt \
+        engine_dir:/opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1/,max_tokens_in_paged_kv_cache:5120 && \
+    sed -i '/input \[/a\  {\n    name: "pixel_values"\n    data_type: TYPE_FP32\n    dims: [ 1, 3, 224, 224 ]\n  },' \
+        /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/config.pbtxt
 
-# Install minimal runtime dependencies for Triton
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip && \
-    pip3 install --upgrade pip numpy grpcio-tools && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy the built TensorRT-LLM engine from the builder stage
-COPY --from=builder /model_engine/ /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1/
-
-# Copy the tensorrtllm_backend templates and populate the model repository
-COPY --from=builder /app/tensorrtllm_backend/all_models/inflight_batcher_llm /opt/tritonserver/models/inflight_batcher_llm/
-RUN python3 /opt/tritonserver/tensorrt_llm/tools/fill_template.py -i /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/config.pbtxt \
-        engine_dir:/opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1/,max_tokens_in_paged_kv_cache:5120
-
-# Adjust config.pbtxt to include image input for mllama
-RUN sed -i '/input \[/a\  {\n    name: "pixel_values"\n    data_type: TYPE_FP32\n    dims: [ 1, 3, 224, 224 ]\n  },' \
-    /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/config.pbtxt
+# Create entrypoint script to build engine and start Triton
+RUN echo '#!/bin/bash\n\
+if [ ! -f /model_engine/completed ]; then\n\
+  echo "Building TensorRT engine..."\n\
+  cd /app/tensorrt_llm/examples/multimodal && \\\n\
+  python3 build_visual_engine.py \\\n\
+    --model_type mllama \\\n\
+    --model_path /models/Llama-3.2-11B-Vision \\\n\
+    --output_dir /model_engine \\\n\
+    --dtype int8 \\\n\
+    --max_input_len 2048 \\\n\
+    --max_output_len 512 && \\\n\
+  cp -r /model_engine/* /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1/ && \\\n\
+  touch /model_engine/completed\n\
+  echo "Engine build complete."\n\
+fi\n\
+echo "Starting Triton Server..."\n\
+tritonserver --model-store=/opt/tritonserver/models --backend-config=tensorrtllm,verbose=true' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
 
 # Expose Triton ports: HTTP (8000), gRPC (8001), Metrics (8002)
 EXPOSE 8000 8001 8002
 
-# Start Triton Inference Server
-CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm,verbose=true"]
+# Use entrypoint to build engine and start Triton
+ENTRYPOINT ["/app/entrypoint.sh"]
