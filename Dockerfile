@@ -17,17 +17,17 @@ RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
 WORKDIR /TensorRT-LLM
 RUN pip install -r requirements.txt
 
-# Download Llama 3.2 11B Vision model (adjust model name/path as needed)
-RUN mkdir -p /models/Llama-3.2-11B-Vision && \
-    huggingface-cli download meta-llama/Llama-3.2-11B-Vision --local-dir /models/Llama-3.2-11B-Vision
+# # Download Llama 3.2 11B Vision model (adjust model name/path as needed)
+# RUN mkdir -p /models/Llama-3.2-11B-Vision && \
+#     huggingface-cli download meta-llama/Llama-3.2-11B-Vision --local-dir /models/Llama-3.2-11B-Vision
 
-# Build the visual engine with INT8 precision
-WORKDIR /TensorRT-LLM/examples/multimodal
-RUN python build_visual_engine.py \
-    --model_type mllama \
-    --model_path /models/Llama-3.2-11B-Vision \
-    --output_dir /model_engine \
-    --dtype int8
+# # Build the visual engine with INT8 precision
+# WORKDIR /TensorRT-LLM/examples/multimodal
+# RUN python build_visual_engine.py \
+#     --model_type mllama \
+#     --model_path /models/Llama-3.2-11B-Vision \
+#     --output_dir /model_engine \
+#     --dtype int8
 
 ##########################
 # Build Triton Backend
