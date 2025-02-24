@@ -65,8 +65,13 @@ RUN pip install --upgrade pip && \
 #     ./build.sh --enable-gpu --build-type=Release --no-container-build --cmake-args="-DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release"
 
 # Build the backend using build.py directly (if available) with correct arguments
-RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
+# RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
 
+# Alternative: Use CMake directly if build.sh/build.py fail
+RUN mkdir build && cd build && \
+    cmake .. -DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release -DTRITON_BACKEND_PATH=/opt/tritonserver/backends && \
+    make -j$(nproc) install
+    
 # If build.sh fails, try building with build.py directly (if available) with correct arguments
 # RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
 
