@@ -3,6 +3,7 @@ set -e
 
 # Force UCX library path priority
 export LD_LIBRARY_PATH=/opt/hpcx/ucx/lib:$LD_LIBRARY_PATH
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
 
 # Check if model and engines exist
 if [ ! -d "/models/Llama-3.2-11B-Vision" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
