@@ -20,8 +20,8 @@ RUN mkdir -p /models/Llama-3.2-11B-Vision && \
 RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm
 
 # Clone tensorrtllm_backend for Triton templates
-# RUN git clone --branch v0.10.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
-RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
+RUN git clone --branch v0.10.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
+# RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
 
 # Set up Triton model repository (corrected structure)
 RUN mkdir -p /model_engine && \
