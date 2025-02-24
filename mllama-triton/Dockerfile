@@ -1,11 +1,14 @@
 FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS runtime
 WORKDIR /app
 
-# Install minimal system dependencies
+# Install minimal system dependencies and bitsandbytes
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev && \
     apt-get purge -y hwloc-nox libhwloc-dev libhwloc-plugins && \
     rm -rf /var/lib/apt/lists/*
+
+# Install bitsandbytes for 4-bit quantization (Unsloth)
+RUN pip3 install bitsandbytes --extra-index-url https://pypi.nvidia.com
 
 # Clone TensorRT-LLM and tensorrtllm_backend
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
@@ -20,7 +23,7 @@ COPY scripts/entrypoint.sh .
 # Copy Triton model repo
 COPY model_repo/multimodal_ifb /models/multimodal_ifb/
 
-# Fill Triton configs dynamically based on model
+# Fill Triton configs dynamically based on model (default to meta-llama for now)
 RUN python3 /app/tensorrtllm_backend/tools/fill_template.py \
     -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
     triton_backend:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:/models/tensorrt_llm/1/,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:TYPE_INT4,logits_datatype:TYPE_FP32 && \
