@@ -1,55 +1,53 @@
-# Use the official Triton Server image with TensorRT-LLM support
-FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3
-
-# Set working directory
+# Stage 1: Builder Stage (Using TensorRT-LLM Base for Engine Building)
+FROM nvcr.io/nvidia/tensorrt-llm:24.05-py3 AS builder
 WORKDIR /app
 
-# Install additional dependencies (e.g., for Hugging Face model download)
-RUN pip install --no-cache-dir \
-    huggingface_hub \
-    transformers>=4.43.0 \
-    sentencepiece \
-    protobuf
+# Install dependencies for model download and mllama engine building
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git python3-pip && \
+    pip3 install --upgrade pip huggingface_hub transformers torch timm && \
+    rm -rf /var/lib/apt/lists/*
 
-# Environment variables for Hugging Face (optional: for faster downloads)
-ENV HF_HUB_ENABLE_HF_TRANSFER=1
+# Download LLaMA 3.2 11B Vision Instruct model
 ARG HF_TOKEN
-# Download LLaMA 3.2 3B model from Hugging Face
-# Replace <YOUR_HF_TOKEN> with your Hugging Face token if required
-RUN huggingface-cli login --token ${HF_TOKEN} --add-to-git-credential && \
-    huggingface-cli download meta-llama/Llama-3.2-3B-Instruct --local-dir /app/model
+RUN mkdir -p /models/Llama-3.2-11B-Vision && \
+    huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
+    --local-dir /models/Llama-3.2-11B-Vision \
+    --token ${HF_TOKEN}
 
-# Convert the model to TensorRT-LLM checkpoint format
-RUN python3 /opt/tritonserver/tensorrt_llm/examples/llama/convert_checkpoint.py \
-    --model_dir /app/model \
-    --output_dir /app/tllm_checkpoint \
-    --dtype float16
-
-# Build the TensorRT engine (optimized for single GPU, FP16 precision)
-RUN trtllm-build \
-    --checkpoint_dir /app/tllm_checkpoint \
-    --output_dir /app/trt_engines \
-    --gemm_plugin float16 \
-    --gpt_attention_plugin float16 \
+# Build the TensorRT-LLM engine for mllama with build_visual_engine.py
+WORKDIR /opt/tensorrt-llm/examples/multimodal
+RUN python3 build_visual_engine.py \
+    --model_type mllama \
+    --model_path /models/Llama-3.2-11B-Vision \
+    --output_dir /model_engine \
+    --dtype int8 \
     --max_input_len 2048 \
     --max_output_len 512
 
-# Clone the TensorRT-LLM backend repository for Triton configuration
+# Clone the official tensorrtllm_backend for Triton templates
 RUN git clone --branch v0.10.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
 
-# Set up Triton model repository
-RUN mkdir -p /app/model_repository/inflight_batcher_llm/tensorrt_llm/1 && \
-    cp -r /app/trt_engines/* /app/model_repository/inflight_batcher_llm/tensorrt_llm/1/ && \
-    cp -r /app/tensorrtllm_backend/all_models/inflight_batcher_llm/* /app/model_repository/inflight_batcher_llm/ && \
-    python3 /app/tensorrtllm_backend/tools/fill_template.py -i /app/model_repository/inflight_batcher_llm/tensorrt_llm/config.pbtxt \
-        engine_dir:/app/model_repository/inflight_batcher_llm/tensorrt_llm/1/,max_tokens_in_paged_kv_cache:5120 && \
-    python3 /app/tensorrtllm_backend/tools/fill_template.py -i /app/model_repository/inflight_batcher_llm/preprocessing/config.pbtxt \
-        tokenizer_dir:/app/model,tokenizer_type:llama && \
-    python3 /app/tensorrtllm_backend/tools/fill_template.py -i /app/model_repository/inflight_batcher_llm/postprocessing/config.pbtxt \
-        tokenizer_dir:/app/model,tokenizer_type:llama
+# Stage 2: Runtime Stage (Using Triton Server with TensorRT-LLM Support)
+FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3 AS runtime
+WORKDIR /app
 
-# Expose Triton HTTP and gRPC ports
-EXPOSE 8000 8001
+# Install minimal runtime dependencies for Triton
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip && \
+    pip3 install --upgrade pip numpy grpcio-tools && \
+    rm -rf /var/lib/apt/lists/*
 
-# Command to start Triton Server
-CMD ["tritonserver", "--model-repository=/app/model_repository/inflight_batcher_llm"]
+# Copy the built TensorRT-LLM engine from the builder stage
+COPY --from=builder /model_engine/ /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1/
+
+# Copy the tensorrtllm_backend templates and populate the model repository
+COPY --from=builder /app/tensorrtllm_backend/all_models/inflight_batcher_llm /opt/tritonserver/models/inflight_batcher_llm/
+RUN python3 /opt/tritonserver/tensorrt_llm/tools/fill_template.py -i /opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/config.pbtxt \
+        engine_dir:/opt/tritonserver/models/inflight_batcher_llm/tensorrt_llm/1/,max_tokens_in_paged_kv_cache:5120
+
+# Expose Triton ports: HTTP (8000), gRPC (8001), Metrics (8002)
+EXPOSE 8000 8001 8002
+
+# Start Triton Inference Server
+CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm,verbose=true"]
