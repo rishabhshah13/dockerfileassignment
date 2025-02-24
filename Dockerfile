@@ -12,8 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Clone TensorRT-LLM repository and install its requirements
 RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
 WORKDIR /TensorRT-LLM
-RUN pip3 install -r requirements.txt
-RUN pip3 install -e .
+# RUN pip3 install -r requirements.txt
+# RUN python3 build_wheels.py
+# RUN pip3 install -e .
+RUN apt-get -y install libopenmpi-dev && pip3 install --upgrade pip setuptools && pip3 install tensorrt_llm --extra-index-url https://pypi.nvidia.com
 
 # Download LLaMA 3.2 11B Vision model using huggingface-cli
 # Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
