@@ -5,7 +5,7 @@ FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS builder
 
 WORKDIR /app
 
-Install dependencies
+# Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev python3-pip && \
     rm -rf /var/lib/apt/lists/*
