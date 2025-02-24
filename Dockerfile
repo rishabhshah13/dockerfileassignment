@@ -1,153 +1,55 @@
-# Stage 1: Builder Stage
-FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS builder
+# Use the official Triton Server image with TensorRT-LLM support
+FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3
+
+# Set working directory
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git wget git-lfs build-essential cmake curl python3-dev ninja-build && \
-    git lfs install && \
-    pip3 install --upgrade pip huggingface_hub && \
-    rm -rf /var/lib/apt/lists/*
+# Install additional dependencies (e.g., for Hugging Face model download)
+RUN pip install --no-cache-dir \
+    huggingface_hub \
+    transformers>=4.43.0 \
+    sentencepiece \
+    protobuf
 
-# Clone TensorRT-LLM repository and install its requirements
-RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
-WORKDIR /TensorRT-LLM
-RUN pip3 install -r requirements.txt
+# Environment variables for Hugging Face (optional: for faster downloads)
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+ARG HF_TOKEN
+# Download LLaMA 3.2 3B model from Hugging Face
+# Replace <YOUR_HF_TOKEN> with your Hugging Face token if required
+RUN huggingface-cli login --token ${HF_TOKEN} --add-to-git-credential && \
+    huggingface-cli download meta-llama/Llama-3.2-3B-Instruct --local-dir /app/model
 
-# Download LLaMA 3.2 11B Vision model using huggingface-cli
-# Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
-RUN mkdir -p /models/Llama-3.2-11B-Vision && \
-    huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
-    --local-dir /models/Llama-3.2-11B-Vision
+# Convert the model to TensorRT-LLM checkpoint format
+RUN python3 /opt/tritonserver/tensorrt_llm/examples/llama/convert_checkpoint.py \
+    --model_dir /app/model \
+    --output_dir /app/tllm_checkpoint \
+    --dtype float16
 
-# Build the TensorRT-LLM engine with INT8 precision
-WORKDIR /TensorRT-LLM/examples/multimodal
-RUN python3 build_visual_engine.py \
-    --model_type mllama \
-    --model_path /models/Llama-3.2-11B-Vision \
-    --output_dir /model_engine \
-    --dtype int8
+# Build the TensorRT engine (optimized for single GPU, FP16 precision)
+RUN trtllm-build \
+    --checkpoint_dir /app/tllm_checkpoint \
+    --output_dir /app/trt_engines \
+    --gemm_plugin float16 \
+    --gpt_attention_plugin float16 \
+    --max_input_len 2048 \
+    --max_output_len 512
 
-# Stage 2: Runtime Stage
-FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS runtime
-WORKDIR /app
+# Clone the TensorRT-LLM backend repository for Triton configuration
+RUN git clone --branch v0.10.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
 
-# Install runtime dependencies (minimal set for Triton + TensorRT-LLM)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip && \
-    pip3 install --upgrade pip numpy grpcio-tools && \
-    rm -rf /var/lib/apt/lists/*
+# Set up Triton model repository
+RUN mkdir -p /app/model_repository/inflight_batcher_llm/tensorrt_llm/1 && \
+    cp -r /app/trt_engines/* /app/model_repository/inflight_batcher_llm/tensorrt_llm/1/ && \
+    cp -r /app/tensorrtllm_backend/all_models/inflight_batcher_llm/* /app/model_repository/inflight_batcher_llm/ && \
+    python3 /app/tensorrtllm_backend/tools/fill_template.py -i /app/model_repository/inflight_batcher_llm/tensorrt_llm/config.pbtxt \
+        engine_dir:/app/model_repository/inflight_batcher_llm/tensorrt_llm/1/,max_tokens_in_paged_kv_cache:5120 && \
+    python3 /app/tensorrtllm_backend/tools/fill_template.py -i /app/model_repository/inflight_batcher_llm/preprocessing/config.pbtxt \
+        tokenizer_dir:/app/model,tokenizer_type:llama && \
+    python3 /app/tensorrtllm_backend/tools/fill_template.py -i /app/model_repository/inflight_batcher_llm/postprocessing/config.pbtxt \
+        tokenizer_dir:/app/model,tokenizer_type:llama
 
-# Copy the built TensorRT-LLM engine from the builder stage
-COPY --from=builder /model_engine/ /model_engine/
+# Expose Triton HTTP and gRPC ports
+EXPOSE 8000 8001
 
-# Copy the TensorRT-LLM backend from the builder stage
-COPY --from=builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
-
-# Copy the model repository from the local context
-COPY ./model_repository/ /opt/tritonserver/models/
-
-# Set environment variables for Triton
-ENV TRITON_SERVER_PATH=/opt/tritonserver/bin/tritonserver
-ENV LD_LIBRARY_PATH=/opt/tritonserver/lib:$LD_LIBRARY_PATH
-
-# Expose default Triton ports: HTTP (8000), gRPC (8001), Metrics (8002)
-EXPOSE 8000 8001 8002
-
-# Start Triton Inference Server with the model repository and backend config
-CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm,verbose=true"]
-# # Stage 1: Builder Stage
-# FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS builder
-# WORKDIR /app
-
-# # Install build dependencies
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#     git wget git-lfs build-essential cmake curl python3-dev ninja-build && \
-#     git lfs install && \
-#     pip3 install --upgrade pip huggingface_hub && \
-#     rm -rf /var/lib/apt/lists/*
-
-# # Clone TensorRT-LLM repository
-# RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
-# WORKDIR /TensorRT-LLM
-
-# # Enable Universe repository and install libopenmpi-dev, then install tensorrt_llm from NVIDIA's PyPI
-# RUN apt-get update && \
-#     apt-get install -y --no-install-recommends software-properties-common && \
-#     add-apt-repository universe && \
-#     apt-get update && \
-#     apt-get install -y --no-install-recommends libopenmpi-dev && \
-#     pip3 install --upgrade pip setuptools && \
-#     pip3 install tensorrt_llm --extra-index-url https://pypi.nvidia.com
-
-# # Install CUDA driver library (libcuda.so.1) from NVIDIA's CUDA repository
-# RUN apt-get update && apt-get install -y --no-install-recommends gnupg && \
-# wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin && \
-# mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
-# wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda-repo-ubuntu2004-11-8-local_11.8.0-520.61.05-1_amd64.deb && \
-# dpkg -i cuda-repo-ubuntu2004-11-8-local_11.8.0-520.61.05-1_amd64.deb && \
-# cp /var/cuda-repo-ubuntu2004-11-8-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
-# apt-get update && \
-# apt-get install -y --no-install-recommends libcuda1 && \
-# rm -rf /var/lib/apt/lists/*
-# # Download LLaMA 3.2 11B Vision model using huggingface-cli
-# # Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
-# # ARG HF_TOKEN
-# # RUN mkdir -p /models/Llama-3.2-11B-Vision && \
-# #     huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
-# #     --local-dir /models/Llama-3.2-11B-Vision \
-# #     --token ${HF_TOKEN}
-
-# # # Build the TensorRT-LLM engine with INT8 precision
-# # WORKDIR /TensorRT-LLM/examples/multimodal
-# # RUN python3 build_visual_engine.py \
-# #     --model_type mllama \
-# #     --model_path /models/Llama-3.2-11B-Vision \
-# #     --output_dir /model_engine \
-# #     --dtype int8
-
-
-# ARG HF_TOKEN
-# RUN mkdir -p /models/Llama-3.2-3B && \
-#     huggingface-cli download meta-llama/Llama-3.2-3B-Instruct \
-#     --local-dir /models/Llama-3.2-3B \
-#     --token ${HF_TOKEN}
-
-# # Build the TensorRT-LLM engine with INT8 precision
-# WORKDIR /TensorRT-LLM/examples/multimodal
-# RUN python3 build_visual_engine.py \
-#     --model_type mllama \
-#     --model_path /models/Llama-3.2-3B \
-#     --output_dir /model_engine \
-#     --dtype int8
-
-# # Stage 2: Runtime Stage
-# FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS runtime
-# WORKDIR /app
-
-# # Install runtime dependencies (minimal set for Triton + TensorRT-LLM)
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#     python3-pip && \
-#     pip3 install --upgrade pip numpy grpcio-tools && \
-#     rm -rf /var/lib/apt/lists/*
-
-# # Copy the built TensorRT-LLM engine from the builder stage
-# COPY --from=builder /model_engine/ /model_engine/
-
-# # Copy the TensorRT-LLM backend from the builder stage
-# # Note: The backend may already be in the base image; copying ensures consistency
-# COPY --from=builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
-
-# # Copy the model repository from the local context
-# # This should contain your model config (e.g., config.pbtxt) pointing to /model_engine
-# COPY ./model_repository/ /opt/tritonserver/models/
-
-# # Set environment variables for Triton
-# ENV TRITON_SERVER_PATH=/opt/tritonserver/bin/tritonserver
-# ENV LD_LIBRARY_PATH=/opt/tritonserver/lib:$LD_LIBRARY_PATH
-
-# # Expose default Triton ports: HTTP (8000), gRPC (8001), Metrics (8002)
-# EXPOSE 8000 8001 8002
-
-# # Start Triton Inference Server with the model repository and backend config
-# CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm,verbose=true"]
+# Command to start Triton Server
+CMD ["tritonserver", "--model-repository=/app/model_repository/inflight_batcher_llm"]
