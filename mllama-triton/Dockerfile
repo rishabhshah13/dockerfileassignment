@@ -1,14 +1,15 @@
 FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS runtime
 WORKDIR /app
 
-# Install minimal system dependencies and bitsandbytes
+# Install minimal system dependencies and required libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev && \
     apt-get purge -y hwloc-nox libhwloc-dev libhwloc-plugins && \
     rm -rf /var/lib/apt/lists/*
 
-# Install bitsandbytes for 4-bit quantization (Unsloth)
-RUN pip3 install bitsandbytes --extra-index-url https://pypi.nvidia.com
+# Install bitsandbytes for Unsloth 4-bit and compressed_tensors for Neural Magic FP8
+RUN pip3 install bitsandbytes==0.43.1 --extra-index-url https://pypi.nvidia.com
+RUN pip3 install neuralmagic --extra-index-url https://pypi.nvidia.com
 
 # Clone TensorRT-LLM and tensorrtllm_backend
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
