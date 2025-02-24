@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev && \
     rm -rf /var/lib/apt/lists/*
 COPY scripts/requirements.txt .
-RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 # Clone TensorRT-LLM for scripts
 RUN git clone --branch v0.18.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
