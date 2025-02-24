@@ -43,7 +43,7 @@ WORKDIR /tensorrtllm_backend
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-RUN ls -a
+    RUN echo $(ls -a)
 
 # # Build the backend using build.sh with local build (no Docker-in-Docker)
 # # Ensure build.sh is executable and provide necessary arguments
