@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git python3-pip && \
     # pip3 install --upgrade pip && \
+    pip3 install --upgrade pip setuptools wheel && \
     pip3 install huggingface_hub transformers torch timm grpcio-tools \
                  numpy==1.26.4 pandas==1.5.3 datasets==2.14.0 && \
     rm -rf /var/lib/apt/lists/*
