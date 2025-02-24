@@ -43,10 +43,13 @@ WORKDIR /tensorrtllm_backend
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
+
+RUN ls -a
+
 # Build the backend using build.sh with local build (no Docker-in-Docker)
 # Ensure build.sh is executable and provide necessary arguments
 # Build using build.py directly instead of build.sh
-RUN python3 build.py --build-type=Release \
+RUN python3 tensorrtllm_backend/build.py --build-type=Release \
     --enable-gpu \
     --no-container-build \
     --build-dir=/tmp/build \
