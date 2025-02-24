@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     curl \
     python3-dev \
+    ninja-build \
     && git lfs install
 
 # Clone tensorrtllm_backend with submodules
@@ -44,14 +45,20 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 # Build the backend using build.sh with local build (no Docker-in-Docker)
-# Modify build.sh to avoid Docker or use build.py directly with correct arguments
+# Thoroughly patch build.sh to remove all Docker dependencies
 RUN chmod +x build.sh && \
-    # Patch build.sh to skip Docker calls or use a local build
+    # Comment out all Docker-related commands (e.g., docker, docker build, docker pull, etc.)
     sed -i 's/docker run/#docker run/g' build.sh && \
+    sed -i 's/docker build/#docker build/g' build.sh && \
+    sed -i 's/docker pull/#docker pull/g' build.sh && \
+    sed -i 's/docker push/#docker push/g' build.sh && \
+    # Ensure build.sh proceeds with a local build
     ./build.sh --enable-gpu --build-type=Release --no-container-build
 
-# If build.sh still fails, try building with build.py directly (if available)
-# RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
+# If build.sh fails, try building with CMake directly (alternative approach)
+# RUN mkdir build && cd build && \
+#     cmake .. -DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release && \
+#     make -j$(nproc) install
 
 # Stage 3: Runtime Stage
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
