@@ -10,6 +10,7 @@ def run_command(command, error_msg):
 
 def build_vision_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
     cmd = (
+        f"CUDA_VISIBLE_DEVICES=0,1 "  # Explicitly use both GPUs
         f"python3 /app/tensorrt_llm/examples/multimodal/build_visual_engine.py "
         f"--model_type mllama "
         f"--model_path {model_path} "
@@ -22,6 +23,7 @@ def build_vision_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
 def build_decoder_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
     checkpoint_dir = f"{output_dir}/trt_ckpts"
     cmd1 = (
+        f"CUDA_VISIBLE_DEVICES=0,1 "  # Explicitly use both GPUs
         f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
         f"--model_dir {model_path} "
         f"--output_dir {checkpoint_dir} "
@@ -30,12 +32,13 @@ def build_decoder_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
     run_command(cmd1, "Failed to convert checkpoint")
 
     cmd2 = (
+        f"CUDA_VISIBLE_DEVICES=0,1 "  # Explicitly use both GPUs
         f"trtllm-build "
         f"--checkpoint_dir {checkpoint_dir} "
         f"--output_dir {output_dir}/llm/ "
         f"--max_num_tokens 4096 "
         f"--max_seq_len 2048 "
-        f"--workers {tp_size} "  # Match tp_size
+        f"--workers {tp_size} "
         f"--gemm_plugin auto "
         f"--max_batch_size {max_batch_size} "
         f"--max_encoder_input_len 6404 "
