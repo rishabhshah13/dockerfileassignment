@@ -43,7 +43,9 @@ WORKDIR /tensorrtllm_backend
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-    RUN echo $(ls -a)
+# Add build argument for cache busting
+ARG CACHEBUST=1
+RUN echo "Cache bust: $CACHEBUST" && echo $(ls -a)
 
 # # Build the backend using build.sh with local build (no Docker-in-Docker)
 # # Ensure build.sh is executable and provide necessary arguments
