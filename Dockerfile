@@ -1,4 +1,6 @@
-FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3
+# FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3
+FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3
+
 WORKDIR /app
 
 # Install dependencies with pinned versions to avoid incompatibility
