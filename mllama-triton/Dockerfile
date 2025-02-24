@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY scripts/requirements.txt .
-RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
+# COPY scripts/requirements.txt .
+# RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
 
 # Clone TensorRT-LLM for scripts
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
