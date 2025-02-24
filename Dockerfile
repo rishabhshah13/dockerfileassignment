@@ -34,14 +34,14 @@ RUN ./build.sh
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
 WORKDIR /app
 
-# Copy model engine and backend
+# Copy model engine from builder stage
 COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
+
+# Copy backend from triton-builder stage
 COPY --from=triton-builder /tensorrtllm_backend/build/tensorrtllm_backend.so /opt/tritonserver/backends/tensorrtllm_backend/libtensorrtllm_backend.so
 
-# Configure model
-RUN mkdir -p /opt/tritonserver/models/mllama/1
-COPY model_config.pbtxt /opt/tritonserver/models/mllama/1/config.pbtxt
-RUN cp -r /model_engine /opt/tritonserver/models/mllama/1
+# Copy your model repository structure into Triton's model store
+COPY model_repository/ /opt/tritonserver/models/
 
-# Start Triton server
+# Configure and start Triton server
 CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm_backend,config.pb"]
