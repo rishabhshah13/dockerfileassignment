@@ -43,36 +43,28 @@ WORKDIR /tensorrtllm_backend
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Add build argument for cache busting
-ARG CACHEBUST=1
-RUN echo "Cache bust: $CACHEBUST" && echo $(ls -a)
-
-# # Build the backend using build.sh with local build (no Docker-in-Docker)
-# # Ensure build.sh is executable and provide necessary arguments
-# # Build using build.py directly instead of build.sh
-# RUN python3 build.py --build-type=Release \
-#     --enable-gpu \
-#     --no-container-build \
-#     --build-dir=/tmp/build \
-#     --install-dir=/opt/tritonserver/backends/tensorrtllm_backend
-
 # Build the backend using build.sh with local build (no Docker-in-Docker)
-# Ensure build.sh is executable and provide necessary arguments
+# Modify build.sh to avoid Docker or use build.py directly with correct arguments
 RUN chmod +x build.sh && \
+    # Patch build.sh to skip Docker calls or use a local build
+    sed -i 's/docker run/#docker run/g' build.sh && \
     ./build.sh --enable-gpu --build-type=Release --no-container-build
 
-# # Stage 3: Runtime Stage
-# FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
-# WORKDIR /app
+# If build.sh still fails, try building with build.py directly (if available)
+# RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
 
-# # Copy model engine from builder stage
-# COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
+# Stage 3: Runtime Stage
+FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
+WORKDIR /app
 
-# # Copy backend from triton-builder stage
-# COPY --from=triton-builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
+# Copy model engine from builder stage
+COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
 
-# # Copy your model repository structure into Triton's model store
-# COPY model_repository/ /opt/tritonserver/models/
+# Copy backend from triton-builder stage
+COPY --from=triton-builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
 
-# # Configure and start Triton server
-# CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm_backend,config.pb"]
+# Copy your model repository structure into Triton's model store
+COPY model_repository/ /opt/tritonserver/models/
+
+# Configure and start Triton server
+CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm_backend,config.pb"]
