@@ -25,16 +25,16 @@ RUN apt-get update && \
 # Download LLaMA 3.2 11B Vision model using huggingface-cli
 # Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
 ARG HF_TOKEN
-RUN mkdir -p /models/Llama-3.2-11B-Vision && \
-    huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
-    --local-dir /models/Llama-3.2-11B-Vision \
+RUN mkdir -p /models/Llama-3.2-3B && \
+    huggingface-cli download meta-llama/Llama-3.2-3B-Instruct \
+    --local-dir /models/Llama-3.2-3B \
     --token ${HF_TOKEN}
 
 # Build the TensorRT-LLM engine with INT8 precision
 WORKDIR /TensorRT-LLM/examples/multimodal
 RUN python3 build_visual_engine.py \
     --model_type mllama \
-    --model_path /models/Llama-3.2-11B-Vision \
+    --model_path /models/Llama-3.2-3B \
     --output_dir /model_engine \
     --dtype int8
 
