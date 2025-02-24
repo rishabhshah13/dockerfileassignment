@@ -16,10 +16,12 @@ WORKDIR /TensorRT-LLM
 RUN pip install -r requirements.txt
 
 # Download LLaMA 3.2 11B Vision model using huggingface-cli
-# Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
+# Note: Requires authentication token passed as build argument
+ARG HF_TOKEN
 RUN mkdir -p /models/Llama-3.2-11B-Vision && \
     huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
-    --local-dir /models/Llama-3.2-11B-Vision
+    --local-dir /models/Llama-3.2-11B-Vision \
+    --token ${HF_TOKEN}
 
 # Build the TensorRT-LLM engine with INT8 precision
 WORKDIR /TensorRT-LLM/examples/multimodal
