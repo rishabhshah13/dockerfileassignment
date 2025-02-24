@@ -1,5 +1,4 @@
 # Stage 1: Builder Stage
-# Use an image with Triton and TensorRT support
 FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS builder
 WORKDIR /app
 
@@ -7,16 +6,16 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget git-lfs build-essential cmake curl python3-dev ninja-build && \
     git lfs install && \
-    pip install --upgrade pip huggingface_hub && \
+    pip3 install --upgrade pip huggingface_hub && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone TensorRT-LLM repository and install its requirements
 RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
 WORKDIR /TensorRT-LLM
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 # Download LLaMA 3.2 11B Vision model using huggingface-cli
-# Note: Requires authentication token passed as build argument
+# Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
 ARG HF_TOKEN
 RUN mkdir -p /models/Llama-3.2-11B-Vision && \
     huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
@@ -25,7 +24,8 @@ RUN mkdir -p /models/Llama-3.2-11B-Vision && \
 
 # Build the TensorRT-LLM engine with INT8 precision
 WORKDIR /TensorRT-LLM/examples/multimodal
-RUN python build_visual_engine.py \
+# Explicitly use python3 to avoid command not found error
+RUN python3 build_visual_engine.py \
     --model_type mllama \
     --model_path /models/Llama-3.2-11B-Vision \
     --output_dir /model_engine \
@@ -38,7 +38,7 @@ WORKDIR /app
 # Install runtime dependencies (minimal set for Triton + TensorRT-LLM)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip && \
-    pip install --upgrade pip numpy grpcio-tools && \
+    pip3 install --upgrade pip numpy grpcio-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the built TensorRT-LLM engine from the builder stage
