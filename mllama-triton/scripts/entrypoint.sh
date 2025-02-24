@@ -1,5 +1,10 @@
 #!/bin/bash
 set -e
+
+# Override HPCX OpenMPI with system OpenMPI
+export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/openmpi/lib:$LD_LIBRARY_PATH
+
+# Check if model and engines exist
 if [ ! -d "/models/Llama-3.2-11B-Vision" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
     echo "Model or engines not found, setting up now..."
     cd /app
@@ -21,5 +26,6 @@ if [ ! -d "/models/Llama-3.2-11B-Vision" ] || [ ! -d "/model_engine/vision" ] ||
 else
     echo "Model and engines already exist, skipping setup."
 fi
+
 echo "Starting Triton Server..."
 exec tritonserver --model-repository=/models/multimodal_ifb --log-verbose=1
