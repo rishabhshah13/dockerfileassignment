@@ -6,19 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# # Install Python dependencies
 # COPY scripts/requirements.txt .
 # RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
 
 # Clone TensorRT-LLM for scripts
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
     cd /app/tensorrt_llm && git submodule update --init --recursive
-
-# Download LLaMA 3.2 11B Vision
-ARG HF_TOKEN
-RUN mkdir -p /models/Llama-3.2-11B-Vision && \
-    huggingface-cli download meta-llama/Llama-3.2-11B-Vision-Instruct \
-    --local-dir /models/Llama-3.2-11B-Vision --token ${HF_TOKEN}
 
 # Copy scripts
 COPY scripts/build_engines.py .
@@ -46,6 +40,10 @@ RUN python3 /opt/tritonserver/backends/tensorrtllm/tools/fill_template.py \
     python3 /opt/tritonserver/backends/tensorrtllm/tools/fill_template.py \
     -i /models/multimodal_ifb/multimodal_encoders/config.pbtxt \
     triton_max_batch_size:8,visual_model_path:/models/multimodal_encoders/1/,encoder_input_features_data_type:TYPE_BF16,hf_model_path:/models/Llama-3.2-11B-Vision
+
+# Set HF_TOKEN as env var for runtime
+ARG HF_TOKEN
+ENV HF_TOKEN=${HF_TOKEN}
 
 # Set entrypoint
 RUN chmod +x entrypoint.sh
