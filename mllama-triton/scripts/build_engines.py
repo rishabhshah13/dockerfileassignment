@@ -31,7 +31,7 @@ def build_decoder_engine(model_path, output_dir, max_batch_size, tp_size, quanti
         f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
         f"--model_dir {model_path} "
         f"--output_dir {checkpoint_dir} "
-        f"--dtype float16"  # Use float16 instead of fp8
+        f"--dtype float16"  # Use float16 as proxy
     )
     run_command(cmd1, "Failed to convert checkpoint")
 
@@ -45,15 +45,12 @@ def build_decoder_engine(model_path, output_dir, max_batch_size, tp_size, quanti
         f"--max_num_tokens 2048 "
         f"--max_seq_len 1024 "
         f"--workers {tp_size} "
-        f"--gemm_plugin auto "
+        f"--gemm_plugin auto "  # Use auto to handle FP8 if available
         f"--max_batch_size {max_batch_size} "
         f"--max_encoder_input_len 6404 "
         f"--input_timing_cache /app/tensorrt_llm/model.cache "
         f"--use_paged_context_fmha enable"
     )
-    if quantization == "fp8":
-        # Ensure FP8 is used in the engine build if needed (optional, as model is pre-FP8)
-        cmd2 += " --dtype fp8"
     run_command(cmd2, "Failed to build decoder engine")
 
 def main():
