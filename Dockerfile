@@ -4,13 +4,13 @@ FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3
 WORKDIR /app
 
 # Install dependencies with pinned versions to avoid incompatibility
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git python3-pip && \
-    # pip3 install --upgrade pip && \
-    # pip3 install --upgrade pip setuptools wheel && \
-    pip3 install huggingface_hub transformers torch timm grpcio-tools \
-                 numpy==1.26.4 pandas==1.5.3 datasets==2.14.0 && \
-    rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     git python3-pip && \
+#     # pip3 install --upgrade pip && \
+#     # pip3 install --upgrade pip setuptools wheel && \
+#     pip3 install huggingface_hub transformers torch timm grpcio-tools \
+#                  numpy==1.26.4 pandas==1.5.3 datasets==2.14.0 && \
+#     rm -rf /var/lib/apt/lists/*
 
 # Download LLaMA 3.2 11B Vision Instruct model
 ARG HF_TOKEN
