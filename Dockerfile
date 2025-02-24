@@ -1,82 +1,77 @@
-# Stage 1: Build Stage - Model Engine Creation
-FROM nvcr.io/nvidia/tensorrt:23.10-py3 AS builder
+# Stage 1: Builder Stage
+# Use an image that has both TensorRT and Triton support.
+FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS builder
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y git wget
-RUN pip install --upgrade pip
-RUN pip install huggingface_hub
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    git wget git-lfs build-essential cmake curl python3-dev ninja-build && \
+    git lfs install && \
+    pip install --upgrade pip huggingface_hub
 
-# Clone TensorRT-LLM
-RUN git clone https://github.com/NVIDIA/TensorRT-LLM /TensorRT-LLM
+##########################
+# Build Model Engine (TensorRT-LLM Engine)
+##########################
+# Clone TensorRT-LLM repository and install its requirements
+RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
 WORKDIR /TensorRT-LLM
 RUN pip install -r requirements.txt
 
-# Download Llama 3.2 11B Vision model
-RUN mkdir -p /models/Llama-3.2-11B-Vision
-RUN huggingface-cli download meta-llama/Llama-3.2-11B-Vision --local-dir /models/Llama-3.2-11B-Vision
+# Download Llama 3.2 11B Vision model (adjust model name/path as needed)
+RUN mkdir -p /models/Llama-3.2-11B-Vision && \
+    huggingface-cli download meta-llama/Llama-3.2-11B-Vision --local-dir /models/Llama-3.2-11B-Vision
 
 # Build the visual engine with INT8 precision
 WORKDIR /TensorRT-LLM/examples/multimodal
-RUN python build_visual_engine.py --model_type mllama \
+RUN python build_visual_engine.py \
+    --model_type mllama \
     --model_path /models/Llama-3.2-11B-Vision \
-    --output_dir /tmp/mllama/trt_engines/encoder/ \
+    --output_dir /model_engine \
     --dtype int8
 
-# Stage 2: Triton Backend Build Stage
-FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS triton-builder
+##########################
+# Build Triton Backend
+##########################
+# Clone the Triton backend repository for TensorRT-LLM
 WORKDIR /app
-
-# Install Git LFS, build tools, and other dependencies
-RUN apt-get update && apt-get install -y \
-    git-lfs \
-    build-essential \
-    cmake \
-    curl \
-    python3-dev \
-    ninja-build \
-    && git lfs install
-
-# Clone tensorrtllm_backend with submodules
-RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend /tensorrtllm_backend --recursive
+RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend.git /tensorrtllm_backend --recursive
 WORKDIR /tensorrtllm_backend
 
-# Install Python dependencies
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+# Install backend Python dependencies
+RUN pip install -r requirements.txt
 
-# Build the backend using build.sh with local build (no Docker-in-Docker)
-# Thoroughly patch build.sh to remove all Docker dependencies and handle -f, -t, etc.
+# Patch and build the backend using build.sh. Here we disable Docker-related commands to perform a local build.
 RUN chmod +x build.sh && \
-    # Comment out all Docker-related commands
     sed -i 's/docker run/#docker run/g' build.sh && \
     sed -i 's/docker build/#docker build/g' build.sh && \
     sed -i 's/docker pull/#docker pull/g' build.sh && \
     sed -i 's/docker push/#docker push/g' build.sh && \
-    # Remove or comment out standalone arguments like --build-arg, -f, -t, --rm, etc.
     sed -i 's/--build-arg/#--build-arg/g' build.sh && \
     sed -i 's/-f/#-f/g' build.sh && \
     sed -i 's/-t/#-t/g' build.sh && \
     sed -i 's/--rm/#--rm/g' build.sh && \
-    # Ensure build.sh proceeds with a local build using correct arguments
-    ./build.sh --enable-gpu --build-type=Release --no-container-build --cmake-args="-DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release"
+    ./build.sh --enable-gpu --build-type=Release --no-container-build \
+      --cmake-args="-DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release"
 
-# If build.sh fails, try building with CMake in the inflight_batcher_llm directory (if applicable)
-# RUN mkdir build && cd build && \
-#     cmake ../inflight_batcher_llm -DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release -DTRITON_BACKEND_PATH=/opt/tritonserver/backends && \
-#     make -j$(nproc) install
+# At this point the backend build outputs are in /opt/tritonserver/backends/tensorrtllm_backend
 
-# Stage 3: Runtime Stage
-FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
+# End of builder stage
+
+# Stage 2: Runtime Stage
+FROM nvcr.io/nvidia/tritonserver:24.05-py3 AS runtime
 WORKDIR /app
 
-# Copy model engine from builder stage
-COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
+# Copy the built model engine from builder
+COPY --from=builder /model_engine/ /model_engine
 
-# Copy backend from triton-builder stage
-COPY --from=triton-builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
+# Copy the built Triton backend from builder
+COPY --from=builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
 
-# Copy your model repository structure into Triton's model store
+# Copy your model repository (assumed to be in the local context as "model_repository")
 COPY model_repository/ /opt/tritonserver/models/
 
-# Configure and start Triton server
+# Expose the standard Triton ports
+EXPOSE 8000 8001 8002
+
+# Start Triton Inference Server with the provided model repository and backend config
 CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm_backend,config.pb"]
