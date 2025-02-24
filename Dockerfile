@@ -9,13 +9,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pip3 install --upgrade pip huggingface_hub && \
     rm -rf /var/lib/apt/lists/*
 
-# Clone TensorRT-LLM repository and install its requirements
+# Clone TensorRT-LLM repository
 RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git /TensorRT-LLM
 WORKDIR /TensorRT-LLM
-# RUN pip3 install -r requirements.txt
-# RUN python3 build_wheels.py
-# RUN pip3 install -e .
-RUN apt-get -y install libopenmpi-dev && pip3 install --upgrade pip setuptools && pip3 install tensorrt_llm --extra-index-url https://pypi.nvidia.com
+
+# Enable Universe repository and install libopenmpi-dev, then install tensorrt_llm from NVIDIA's PyPI
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository universe && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libopenmpi-dev && \
+    pip3 install --upgrade pip setuptools && \
+    pip3 install tensorrt_llm --extra-index-url https://pypi.nvidia.com
 
 # Download LLaMA 3.2 11B Vision model using huggingface-cli
 # Note: Requires authentication if the model is gated (set HF_TOKEN env var if needed)
@@ -27,7 +32,6 @@ RUN mkdir -p /models/Llama-3.2-11B-Vision && \
 
 # Build the TensorRT-LLM engine with INT8 precision
 WORKDIR /TensorRT-LLM/examples/multimodal
-# Explicitly use python3 to avoid command not found error
 RUN python3 build_visual_engine.py \
     --model_type mllama \
     --model_path /models/Llama-3.2-11B-Vision \
