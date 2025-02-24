@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Install bitsandbytes for Unsloth 4-bit and compressed_tensors for Neural Magic FP8
-RUN pip3 install bitsandbytes==0.43.1 --extra-index-url https://pypi.nvidia.com
-RUN pip3 install neuralmagic --extra-index-url https://pypi.nvidia.com
+RUN pip3 install bitsandbytes==0.43.1
+RUN pip3 install neuralmagic 
 
 # Clone TensorRT-LLM and tensorrtllm_backend
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
