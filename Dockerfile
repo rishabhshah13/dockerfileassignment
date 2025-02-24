@@ -1,4 +1,4 @@
-# Stage 1: Builder Stage (Using Triton Server with TensorRT-LLM Support)
+# Stage 1: Builder Stage
 FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3 AS builder
 WORKDIR /app
 
@@ -15,8 +15,9 @@ RUN mkdir -p /models/Llama-3.2-11B-Vision && \
     --local-dir /models/Llama-3.2-11B-Vision \
     --token ${HF_TOKEN}
 
-# Build the TensorRT-LLM engine for mllama with build_visual_engine.py
-WORKDIR /opt/tritonserver/tensorrt_llm/examples/multimodal
+# Clone TensorRT-LLM repo to get build_visual_engine.py
+RUN git clone --branch v0.10.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm
+WORKDIR /app/tensorrt_llm/examples/multimodal
 RUN python3 build_visual_engine.py \
     --model_type mllama \
     --model_path /models/Llama-3.2-11B-Vision \
@@ -28,7 +29,7 @@ RUN python3 build_visual_engine.py \
 # Clone the official tensorrtllm_backend for Triton templates
 RUN git clone --branch v0.10.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend
 
-# Stage 2: Runtime Stage (Using Same Triton Server Base)
+# Stage 2: Runtime Stage
 FROM nvcr.io/nvidia/tritonserver:24.05-trtllm-python-py3 AS runtime
 WORKDIR /app
 
@@ -53,4 +54,5 @@ RUN sed -i '/input \[/a\  {\n    name: "pixel_values"\n    data_type: TYPE_FP32\
 # Expose Triton ports: HTTP (8000), gRPC (8001), Metrics (8002)
 EXPOSE 8000 8001 8002
 
-# Start Triton Inferenc
+# Start Triton Inference Server
+CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm,verbose=true"]
