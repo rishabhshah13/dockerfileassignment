@@ -1,17 +1,19 @@
 # Stage 1: Build Engines
-# FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS builder
-FROM nvcr.io/nvidia/tritonserver:24.12-trtllm-python-py3 AS builder
+FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS builder
+# FROM nvcr.io/nvidia/tritonserver:24.12-trtllm-python-py3 AS builder
+# FROM nvcr.io/nvidia/tritonserver:24.11-trtllm-python-py3 AS builder
+
 WORKDIR /app
 
 # Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git git-lfs libopenmpi-dev python3-pip && \
-    rm -rf /var/lib/apt/lists/*
-COPY scripts/requirements.txt .
-RUN pip3 install -r requirements.txt
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     git git-lfs libopenmpi-dev python3-pip && \
+#     rm -rf /var/lib/apt/lists/*
+# COPY scripts/requirements.txt .
+# RUN pip3 install -r requirements.txt
 
 # Clone TensorRT-LLM for scripts
-RUN git clone --branch v0.18.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
+RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
     cd /app/tensorrt_llm && git submodule update --init --recursive
 
 # Download LLaMA 3.2 11B Vision
