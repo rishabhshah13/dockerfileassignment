@@ -43,29 +43,28 @@ WORKDIR /tensorrtllm_backend
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-
 RUN ls -a
 
-# Build the backend using build.sh with local build (no Docker-in-Docker)
-# Ensure build.sh is executable and provide necessary arguments
-# Build using build.py directly instead of build.sh
-RUN python3 tensorrtllm_backend/build.py --build-type=Release \
-    --enable-gpu \
-    --no-container-build \
-    --build-dir=/tmp/build \
-    --install-dir=/opt/tritonserver/backends/tensorrtllm_backend
-# Stage 3: Runtime Stage
-FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
-WORKDIR /app
+# # Build the backend using build.sh with local build (no Docker-in-Docker)
+# # Ensure build.sh is executable and provide necessary arguments
+# # Build using build.py directly instead of build.sh
+# RUN python3 build.py --build-type=Release \
+#     --enable-gpu \
+#     --no-container-build \
+#     --build-dir=/tmp/build \
+#     --install-dir=/opt/tritonserver/backends/tensorrtllm_backend
+# # Stage 3: Runtime Stage
+# FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
+# WORKDIR /app
 
-# Copy model engine from builder stage
-COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
+# # Copy model engine from builder stage
+# COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
 
-# Copy backend from triton-builder stage
-COPY --from=triton-builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
+# # Copy backend from triton-builder stage
+# COPY --from=triton-builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
 
-# Copy your model repository structure into Triton's model store
-COPY model_repository/ /opt/tritonserver/models/
+# # Copy your model repository structure into Triton's model store
+# COPY model_repository/ /opt/tritonserver/models/
 
-# Configure and start Triton server
-CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm_backend,config.pb"]
+# # Configure and start Triton server
+# CMD ["tritonserver", "--model-store=/opt/tritonserver/models", "--backend-config=tensorrtllm_backend,config.pb"]
