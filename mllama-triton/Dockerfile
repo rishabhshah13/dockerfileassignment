@@ -1,16 +1,12 @@
 FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS runtime
 WORKDIR /app
 
-# Install system dependencies
+# Install minimal system dependencies (keep git for cloning)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies, avoid system pip conflict
-# COPY scripts/requirements.txt .
-# RUN pip3 install -r requirements.txt
-
-# Clone TensorRT-LLM and tensorrtllm_backend
+# Clone TensorRT-LLM and tensorrtllm_backend (for scripts and tools)
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
     cd /app/tensorrt_llm && git submodule update --init --recursive
 RUN git clone --branch main https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend && \
@@ -23,7 +19,7 @@ COPY scripts/entrypoint.sh .
 # Copy Triton model repo
 COPY model_repo/multimodal_ifb /models/multimodal_ifb/
 
-# Fill Triton configs
+# Fill Triton configs using the image's resources
 RUN python3 /app/tensorrtllm_backend/tools/fill_template.py \
     -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
     triton_backend:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:/models/tensorrt_llm/1/,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:TYPE_BF16,logits_datatype:TYPE_FP32 && \
