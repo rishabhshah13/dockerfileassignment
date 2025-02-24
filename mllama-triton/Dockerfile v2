@@ -4,7 +4,6 @@ WORKDIR /app
 # Install minimal system dependencies (keep git for cloning)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs libopenmpi-dev && \
-    apt-get purge -y hwloc-nox libhwloc-dev libhwloc-plugins && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone TensorRT-LLM and tensorrtllm_backend (for scripts and tools)
