@@ -45,15 +45,16 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 # Build the backend using build.sh with local build (no Docker-in-Docker)
-# Thoroughly patch build.sh to remove all Docker dependencies and handle --build-arg
+# Thoroughly patch build.sh to remove all Docker dependencies and handle -f
 RUN chmod +x build.sh && \
-    # Comment out all Docker-related commands and handle --build-arg
+    # Comment out all Docker-related commands
     sed -i 's/docker run/#docker run/g' build.sh && \
     sed -i 's/docker build/#docker build/g' build.sh && \
     sed -i 's/docker pull/#docker pull/g' build.sh && \
     sed -i 's/docker push/#docker push/g' build.sh && \
-    # Remove or comment out --build-arg and other standalone arguments
+    # Remove or comment out --build-arg and -f and other standalone arguments
     sed -i 's/--build-arg/#--build-arg/g' build.sh && \
+    sed -i 's/-f/#-f/g' build.sh && \
     # Ensure build.sh proceeds with a local build
     ./build.sh --enable-gpu --build-type=Release --no-container-build
 
