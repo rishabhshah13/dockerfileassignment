@@ -10,29 +10,30 @@ def run_command(command, error_msg):
 
 def build_vision_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
     cmd = (
-        f"CUDA_VISIBLE_DEVICES=0,1 "  # Explicitly use both GPUs
+        f"CUDA_VISIBLE_DEVICES=0,1 "  # Both GPUs
         f"python3 /app/tensorrt_llm/examples/multimodal/build_visual_engine.py "
         f"--model_type mllama "
         f"--model_path {model_path} "
         f"--output_dir {output_dir}/vision/ "
         f"--max_batch_size {max_batch_size} "
-        f"--tp_size {tp_size}"
+        f"--tp_size {tp_size} "
+        f"--dtype fp16"  # Changed to fp16
     )
     run_command(cmd, "Failed to build vision encoder engine")
 
 def build_decoder_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
     checkpoint_dir = f"{output_dir}/trt_ckpts"
     cmd1 = (
-        f"CUDA_VISIBLE_DEVICES=0,1 "  # Explicitly use both GPUs
+        f"CUDA_VISIBLE_DEVICES=0,1 "  # Both GPUs
         f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
         f"--model_dir {model_path} "
         f"--output_dir {checkpoint_dir} "
-        f"--dtype bfloat16"
+        f"--dtype fp16"  # Changed to fp16
     )
     run_command(cmd1, "Failed to convert checkpoint")
 
     cmd2 = (
-        f"CUDA_VISIBLE_DEVICES=0,1 "  # Explicitly use both GPUs
+        f"CUDA_VISIBLE_DEVICES=0,1 "  # Both GPUs
         f"trtllm-build "
         f"--checkpoint_dir {checkpoint_dir} "
         f"--output_dir {output_dir}/llm/ "
