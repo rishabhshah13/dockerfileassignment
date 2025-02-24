@@ -26,13 +26,27 @@ RUN python build_visual_engine.py --model_type mllama \
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS triton-builder
 WORKDIR /app
 
-# Install required dependencies
-RUN apt-get update && apt-get install -y docker.io
-RUN pip install requests
+# Install Git LFS and additional build tools
+RUN apt-get update && apt-get install -y git-lfs build-essential cmake curl && \
+    git lfs install
 
-RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend /tensorrtllm_backend
+# Clone tensorrtllm_backend with submodules
+RUN git clone https://github.com/triton-inference-server/tensorrtllm_backend /tensorrtllm_backend --recursive
 WORKDIR /tensorrtllm_backend
-RUN ./build.sh
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Build the backend without Docker-in-Docker
+# Use build.py directly with necessary arguments
+RUN python3 build.py \
+    --enable-gpu \
+    --build-type=Release \
+    --target-platform=linux/amd64 \
+    --tmp-dir=/tmp \
+    --install-dir=/opt/tritonserver/backends/tensorrtllm_backend \
+    --no-container-build
 
 # Stage 3: Runtime Stage
 FROM nvcr.io/nvidia/tritonserver:24.01-py3 AS runtime
@@ -42,7 +56,7 @@ WORKDIR /app
 COPY --from=builder /tmp/mllama/trt_engines/encoder/ /model_engine
 
 # Copy backend from triton-builder stage
-COPY --from=triton-builder /tensorrtllm_backend/build/tensorrtllm_backend.so /opt/tritonserver/backends/tensorrtllm_backend/libtensorrtllm_backend.so
+COPY --from=triton-builder /opt/tritonserver/backends/tensorrtllm_backend /opt/tritonserver/backends/tensorrtllm_backend
 
 # Copy your model repository structure into Triton's model store
 COPY model_repository/ /opt/tritonserver/models/
