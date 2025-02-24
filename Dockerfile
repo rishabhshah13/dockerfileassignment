@@ -41,17 +41,15 @@ WORKDIR /tensorrtllm_backend
 RUN pip install -r requirements.txt
 
 # Patch and build the backend using build.sh. Here we disable Docker-related commands to perform a local build.
+# Patch and build the backend using build.sh by commenting out docker commands only
 RUN chmod +x build.sh && \
-    sed -i 's/docker run/#docker run/g' build.sh && \
-    sed -i 's/docker build/#docker build/g' build.sh && \
-    sed -i 's/docker pull/#docker pull/g' build.sh && \
-    sed -i 's/docker push/#docker push/g' build.sh && \
-    sed -i 's/--build-arg/#--build-arg/g' build.sh && \
-    sed -i 's/-f/#-f/g' build.sh && \
-    sed -i 's/-t/#-t/g' build.sh && \
-    sed -i 's/--rm/#--rm/g' build.sh && \
+    sed -i '/^docker run/ s/^/#/' build.sh && \
+    sed -i '/^docker build/ s/^/#/' build.sh && \
+    sed -i '/^docker pull/ s/^/#/' build.sh && \
+    sed -i '/^docker push/ s/^/#/' build.sh && \
     ./build.sh --enable-gpu --build-type=Release --no-container-build \
       --cmake-args="-DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release"
+
 
 # At this point the backend build outputs are in /opt/tritonserver/backends/tensorrtllm_backend
 
