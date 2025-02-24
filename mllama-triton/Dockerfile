@@ -1,10 +1,11 @@
 # Stage 1: Build Engines
-FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS builder
+# FROM nvcr.io/nvidia/tritonserver:25.01-trtllm-python-py3 AS builder
+FROM nvcr.io/nvidia/tritonserver:24.12-trtllm-python-py3 AS builder
 WORKDIR /app
 
 # Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git git-lfs libopenmpi-dev && \
+    git git-lfs libopenmpi-dev python3-pip && \
     rm -rf /var/lib/apt/lists/*
 COPY scripts/requirements.txt .
 RUN pip3 install -r requirements.txt
