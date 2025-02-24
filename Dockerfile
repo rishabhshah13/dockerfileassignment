@@ -50,21 +50,23 @@ RUN pip install --upgrade pip && \
 # Thoroughly patch build.sh to remove all Docker dependencies and handle -f, -t, etc.
 # Build the backend using build.sh with local build (no Docker-in-Docker)
 # Thoroughly patch build.sh to remove all Docker dependencies and handle -f, -t, etc.
-RUN chmod +x build.sh && \
-    # Comment out all Docker-related commands
-    sed -i 's/docker run/#docker run/g' build.sh && \
-    sed -i 's/docker build/#docker build/g' build.sh && \
-    sed -i 's/docker pull/#docker pull/g' build.sh && \
-    sed -i 's/docker push/#docker push/g' build.sh && \
-    # Remove or comment out standalone arguments like --build-arg, -f, -t, --rm, etc.
-    sed -i 's/--build-arg/#--build-arg/g' build.sh && \
-    sed -i 's/-f/#-f/g' build.sh && \
-    sed -i 's/-t/#-t/g' build.sh && \
-    sed -i 's/--rm/#--rm/g' build.sh && \
-    # Ensure build.sh proceeds with a local build using correct arguments
-    ./build.sh --enable-gpu --build-type=Release --no-container-build --cmake-args="-DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release"
+# RUN chmod +x build.sh && \
+#     # Comment out all Docker-related commands
+#     sed -i 's/docker run/#docker run/g' build.sh && \
+#     sed -i 's/docker build/#docker build/g' build.sh && \
+#     sed -i 's/docker pull/#docker pull/g' build.sh && \
+#     sed -i 's/docker push/#docker push/g' build.sh && \
+#     # Remove or comment out standalone arguments like --build-arg, -f, -t, --rm, etc.
+#     sed -i 's/--build-arg/#--build-arg/g' build.sh && \
+#     sed -i 's/-f/#-f/g' build.sh && \
+#     sed -i 's/-t/#-t/g' build.sh && \
+#     sed -i 's/--rm/#--rm/g' build.sh && \
+#     # Ensure build.sh proceeds with a local build using correct arguments
+#     ./build.sh --enable-gpu --build-type=Release --no-container-build --cmake-args="-DTRITON_ENABLE_GPU=ON -DCMAKE_BUILD_TYPE=Release"
 
-    
+# Build the backend using build.py directly (if available) with correct arguments
+RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
+
 # If build.sh fails, try building with build.py directly (if available) with correct arguments
 # RUN python3 build.py --enable-gpu --build-type=Release --target-platform=linux/amd64 --tmp-dir=/tmp --install-dir=/opt/tritonserver/backends/tensorrtllm_backend --no-container-build
 
