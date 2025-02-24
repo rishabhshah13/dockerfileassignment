@@ -9,29 +9,48 @@ def run_command(command, error_msg):
         raise RuntimeError(f"{error_msg}: {result.stderr}")
 
 def build_vision_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
+    # cmd = (
+    #     f"CUDA_VISIBLE_DEVICES=0,1 "  # Both GPUs
+    #     f"MPI_LOCALNRANKS=2 "  # Force 2 ranks for multi-GPU
+    #     f"python3 /app/tensorrt_llm/examples/multimodal/build_visual_engine.py "
+    #     f"--model_type mllama "
+    #     f"--model_path {model_path} "
+    #     f"--output_dir {output_dir}/vision/ "
+    #     f"--max_batch_size {max_batch_size} "
+    #     f"--tp_size {tp_size} "
+    #     f"--world_size {tp_size} "  # Explicit world size
+    #     f"--dtype fp16"
+    # )
     cmd = (
-        f"CUDA_VISIBLE_DEVICES=0,1 "  # Both GPUs
-        f"MPI_LOCALNRANKS=2 "  # Force 2 ranks for multi-GPU
+        f"CUDA_VISIBLE_DEVICES=0,1 "
+        f"MPI_LOCALNRANKS=2 "
         f"python3 /app/tensorrt_llm/examples/multimodal/build_visual_engine.py "
         f"--model_type mllama "
         f"--model_path {model_path} "
         f"--output_dir {output_dir}/vision/ "
         f"--max_batch_size {max_batch_size} "
         f"--tp_size {tp_size} "
-        f"--world_size {tp_size} "  # Explicit world size
-        f"--dtype fp16"
+        f"--dtype int4"
     )
     run_command(cmd, "Failed to build vision encoder engine")
 
 def build_decoder_engine(model_path, output_dir, max_batch_size=1, tp_size=2):
     checkpoint_dir = f"{output_dir}/trt_ckpts"
+    # cmd1 = (
+    #     f"CUDA_VISIBLE_DEVICES=0,1 "
+    #     f"MPI_LOCALNRANKS=2 "
+    #     f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
+    #     f"--model_dir {model_path} "
+    #     f"--output_dir {checkpoint_dir} "
+    #     f"--dtype fp16"
+    # )
     cmd1 = (
         f"CUDA_VISIBLE_DEVICES=0,1 "
         f"MPI_LOCALNRANKS=2 "
         f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
         f"--model_dir {model_path} "
         f"--output_dir {checkpoint_dir} "
-        f"--dtype fp16"
+        f"--dtype int4"
     )
     run_command(cmd1, "Failed to convert checkpoint")
 
