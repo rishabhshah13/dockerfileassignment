@@ -101,6 +101,12 @@ python "/app/tensorrtllm_backend/tools/fill_template.py" -i "$MODEL_REPO_DIR/ens
 python "/app/tensorrtllm_backend/tools/fill_template.py" -i "$MODEL_REPO_DIR/tensorrt_llm_bls/config.pbtxt" \
     triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32
 
+# Verify configs after filling templates
+# echo "Verifying preprocessing config..."
+# cat "$MODEL_REPO_DIR/preprocessing/config.pbtxt"
+# echo "Verifying ensemble config..."
+# cat "$MODEL_REPO_DIR/ensemble/config.pbtxt"
+
 # Verify the structure
 echo "Model repository structure:"
 ls -la "$MODEL_REPO_DIR"
@@ -118,9 +124,9 @@ tritonserver \
     --http-port=8000 \
     --metrics-port=8002 \
     --disable-auto-complete-config \
-    --cuda-memory-pool-byte-size=0:1000000000 \
-    --cuda-memory-pool-byte-size=1:1000000000 \
-    --backend-config=python,shm-region-prefix-name=prefix0_ \
+    --cuda-memory-pool-byte-size=0:300000000 \
+    # --cuda-memory-pool-byte-size=1:1000000000 \
+    # --backend-config=python,shm-region-prefix-name=prefix0_ \
     --model-control-mode=none &
 TRITON_PID=$!
 
