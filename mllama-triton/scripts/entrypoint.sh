@@ -27,10 +27,12 @@ case "$MODEL_NAME" in
         ;;
 esac
 
-# Set paths for engines
+# Set paths for models and engines
 ENGINE_PATH="/models/tensorrt_llm/1/"
 VISUAL_ENGINE_PATH="/models/multimodal_encoders/1/"
 HF_MODEL_PATH="${MODEL_DIR}"
+GPT_MODEL_PATH="${MODEL_DIR}"  # Point to the Hugging Face model directory
+ENCODER_MODEL_PATH="${VISUAL_ENGINE_PATH}"  # Point to the vision encoder engine directory
 
 # Ensure /models/multimodal_ifb exists and is populated dynamically
 if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
@@ -84,11 +86,11 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         chmod +x /app/tensorrtllm_backend/tools/fill_template.py
     fi
 
-    # Run fill_template.py to generate Triton configs with error checking and backend specification
+    # Run fill_template.py to generate Triton configs with error checking, backend, and model paths
     cd /app/tensorrtllm_backend/tools
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
-        triton_backend:tensorrtllm,platform:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:${ENGINE_PATH},enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm config"
+        triton_backend:tensorrtllm,platform:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:${ENGINE_PATH},enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},logits_datatype:TYPE_FP32,gpt_model_path:${GPT_MODEL_PATH},encoder_model_path:${ENCODER_MODEL_PATH} || echo "Failed to generate tensorrt_llm config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/preprocessing/config.pbtxt \
         platform:python,tokenizer_dir:${HF_MODEL_PATH},triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:${VISUAL_ENGINE_PATH},engine_dir:${ENGINE_PATH},max_num_images:1 || echo "Failed to generate preprocessing config"
@@ -100,10 +102,10 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         platform:ensemble,triton_max_batch_size:8,logits_datatype:TYPE_FP32 || echo "Failed to generate ensemble config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt \
-        platform:tensorrt_llm_bls,triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm_bls config"
+        platform:tensorrt_llm_bls,triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32,gpt_model_path:${GPT_MODEL_PATH} || echo "Failed to generate tensorrt_llm_bls config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/multimodal_encoders/config.pbtxt \
-        platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
+        platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH},encoder_model_path:${ENCODER_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
 
     # Check if model and engines exist
     if [ ! -d "$MODEL_DIR" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
@@ -144,11 +146,11 @@ else
         chmod +x /app/tensorrtllm_backend/tools/fill_template.py
     fi
 
-    # Run fill_template.py to generate Triton configs with error checking and backend specification
+    # Run fill_template.py to generate Triton configs with error checking, backend, and model paths
     cd /app/tensorrtllm_backend/tools
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
-        triton_backend:tensorrtllm,platform:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:${ENGINE_PATH},enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm config"
+        triton_backend:tensorrtllm,platform:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:${ENGINE_PATH},enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},logits_datatype:TYPE_FP32,gpt_model_path:${GPT_MODEL_PATH},encoder_model_path:${ENCODER_MODEL_PATH} || echo "Failed to generate tensorrt_llm config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/preprocessing/config.pbtxt \
         platform:python,tokenizer_dir:${HF_MODEL_PATH},triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:${VISUAL_ENGINE_PATH},engine_dir:${ENGINE_PATH},max_num_images:1 || echo "Failed to generate preprocessing config"
@@ -160,10 +162,10 @@ else
         platform:ensemble,triton_max_batch_size:8,logits_datatype:TYPE_FP32 || echo "Failed to generate ensemble config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt \
-        platform:tensorrt_llm_bls,triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm_bls config"
+        platform:tensorrt_llm_bls,triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32,gpt_model_path:${GPT_MODEL_PATH} || echo "Failed to generate tensorrt_llm_bls config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/multimodal_encoders/config.pbtxt \
-        platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
+        platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH},encoder_model_path:${ENCODER_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
 
     # Check if model and engines exist
     if [ ! -d "$MODEL_DIR" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
