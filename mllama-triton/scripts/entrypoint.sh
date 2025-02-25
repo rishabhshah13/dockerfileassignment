@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# Force UCX library path priority
-# export LD_LIBRARY_PATH=/opt/hpcx/ucx/lib:$LD_LIBRARY_PATH
-
-
 # Default model if not specified
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-11B-Vision-Instruct"}
 MODEL_DIR="/models/$(echo "$MODEL_NAME" | sed 's/\//-/g')"
@@ -37,30 +33,35 @@ VISUAL_ENGINE_PATH="/models/multimodal_encoders/1/"
 HF_MODEL_PATH="${MODEL_DIR}"
 
 # Ensure /models/multimodal_ifb exists and is populated dynamically
-if [ ! -d "/models/multimodal_ifb" ] || [ -z "$(ls -A /models/multimodal_ifb)" ]; then
-    echo "Creating and populating /models/multimodal_ifb for $MODEL_NAME with $QUANTIZATION quantization..."
+if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
+    echo "Populating /models/multimodal_ifb for $MODEL_NAME with $QUANTIZATION quantization..."
     mkdir -p /models/multimodal_ifb
     
-    # Copy base structures from tensorrtllm_backend/all_models and create empty .pbtxt files
+    # Copy base structures from tensorrtllm_backend/all_models, ensuring correct subdirectories
     cd /app/tensorrtllm_backend
-    cp -r all_models/inflight_batcher_llm/ multimodal_ifb
-    # Override ensemble and create new multimodal_encoders directories for multimodal
-    cp -r all_models/multimodal/ensemble multimodal_ifb
-    cp -r all_models/multimodal/multimodal_encoders multimodal_ifb
+    cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/
+    cp -r all_models/multimodal/ensemble /models/multimodal_ifb/
+    cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/
 
     # Create empty .pbtxt files if they don’t exist to ensure fill_template.py can modify them
-    mkdir -p /models/multimodal_ifb/tensorrt_llm
-    mkdir -p /models/multimodal_ifb/preprocessing
-    mkdir -p /models/multimodal_ifb/postprocessing
-    mkdir -p /models/multimodal_ifb/ensemble
-    mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
-    mkdir -p /models/multimodal_ifb/multimodal_encoders
-    touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
-    touch /models/multimodal_ifb/preprocessing/config.pbtxt
-    touch /models/multimodal_ifb/postprocessing/config.pbtxt
-    touch /models/multimodal_ifb/ensemble/config.pbtxt
-    touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
-    touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
+    # mkdir -p /models/multimodal_ifb/tensorrt_llm
+    # mkdir -p /models/multimodal_ifb/preprocessing
+    # mkdir -p /models/multimodal_ifb/postprocessing
+    # mkdir -p /models/multimodal_ifb/ensemble
+    # mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
+    # mkdir -p /models/multimodal_ifb/multimodal_encoders
+    # touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
+    # touch /models/multimodal_ifb/preprocessing/config.pbtxt
+    # touch /models/multimodal_ifb/postprocessing/config.pbtxt
+    # touch /models/multimodal_ifb/ensemble/config.pbtxt
+    # touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
+    # touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
+
+    # Verify the directories and files are readable
+    if [ ! -r /models/multimodal_ifb ] || [ ! -r /models/multimodal_ifb/* ]; then
+        echo "Error: /models/multimodal_ifb or its contents are not readable. Fixing permissions..."
+        chmod -R +r /models/multimodal_ifb
+    fi
 
     # Verify fill_template.py exists and is executable in /app/tensorrtllm_backend/tools
     if [ ! -f "/app/tensorrtllm_backend/tools/fill_template.py" ]; then
@@ -96,9 +97,11 @@ if [ ! -d "/models/multimodal_ifb" ] || [ -z "$(ls -A /models/multimodal_ifb)" ]
 
     # Verify the directory is populated
     if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
-        echo "Error: /models/multimodal_ifb is still empty after population attempt. Check fill_template.py, cp commands, or mounts."
+        echo "Error: /models/multimodal_ifb is still empty after population attempt. Check cp commands, fill_template.py, or mounts."
         exit 1
     fi
+else
+    echo "/models/multimodal_ifb is already populated."
 fi
 
 # Check if model and engines exist
