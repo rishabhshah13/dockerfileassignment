@@ -40,7 +40,8 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
     else
         echo "Copying all_models/inflight_batcher_llm/ to /models/multimodal_ifb/tensorrt_llm..."
         # cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/ || echo "Failed to copy tensorrt_llm"
-        cp -r all_models/inflight_batcher_llm/ /models/multimodal_ifb/ || echo "Failed to contents of inflight_batcher_llm"
+        cp -r all_models/inflight_batcher_llm/* /models/multimodal_ifb/ || echo "Failed to copy contents of inflight_batcher_llm"
+
     fi
     if [ ! -d "all_models/multimodal/ensemble" ]; then
         echo "Warning: all_models/multimodal/ensemble not found. Creating empty structure..."
