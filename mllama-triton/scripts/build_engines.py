@@ -35,7 +35,7 @@ def build_decoder_engine(model_path, output_dir, max_batch_size, tp_size, quanti
         f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
         f"--model_dir {model_path} "
         f"--output_dir {checkpoint_dir} "
-        f"--dtype float16"  # MLLaMA requires bfloat16
+        f"--dtype bfloat16"  # MLLaMA requires bfloat16
     )
     run_command(cmd1, "Failed to convert checkpoint")
 
