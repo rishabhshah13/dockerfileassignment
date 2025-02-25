@@ -65,7 +65,6 @@ if [ ! -d "$LLM_ENGINE_DIR" ] || [ ! -d "$VISION_ENGINE_DIR" ]; then
         --gemm_plugin auto \
         --max_batch_size 1 \
         --max_encoder_input_len 6404 \
-        --tp_size 2
     python "/app/tensorrt_llm/examples/multimodal/build_visual_engine.py" \
         --model_type mllama \
         --model_path "$MODEL_DIR" \
@@ -125,6 +124,16 @@ tritonserver \
     --model-control-mode=none &
 TRITON_PID=$!
 
+# Wait for server to start
+sleep 10
+
+# Verify the structure again after server start
+echo "Model repository structure after server start:"
+ls -la "$MODEL_REPO_DIR"
+
+# Keep container running
+wait $TRITON_PID
+echo "Triton server started and running."
 
 
 # # Start Triton server in background and load the ensemble model
