@@ -199,5 +199,5 @@ else
     fi
 
     echo "Starting Triton Server..."
-    exec tritonserver --model-repository=/models/multimodal_ifb --log-verbose=1
+    exec tritonserver --model-repository=/models/multimodal_ifb 
 fi
