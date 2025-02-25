@@ -27,28 +27,44 @@ case "$MODEL_NAME" in
 esac
 
 # Ensure /models/multimodal_ifb exists and is populated with dynamic configs
-if [ ! -d "/models/multimodal_ifb" ]; then
+if [ ! -d "/models/multimodal_ifb" ] || [ -z "$(ls -A /models/multimodal_ifb)" ]; then
     echo "Creating and populating /models/multimodal_ifb for $MODEL_NAME with $QUANTIZATION quantization..."
     mkdir -p /models/multimodal_ifb
+    # Verify fill_template.py exists and is executable
+    if [ ! -f "/app/tensorrtllm_backend/tools/fill_template.py" ]; then
+        echo "Error: fill_template.py not found at /app/tensorrtllm_backend/tools. Checking clone..."
+        ls -l /app/tensorrtllm_backend/tools || echo "Tools directory missing or empty."
+        exit 1
+    fi
+    if [ ! -x "/app/tensorrtllm_backend/tools/fill_template.py" ]; then
+        echo "Making fill_template.py executable..."
+        chmod +x /app/tensorrtllm_backend/tools/fill_template.py
+    fi
     cd /app/tensorrtllm_backend/tools
+    # Run fill_template.py with error checking
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
-        triton_backend:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:/models/tensorrt_llm/1/,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:TYPE_${QUANTIZATION^^},logits_datatype:TYPE_FP32
+        triton_backend:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:/models/tensorrt_llm/1/,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:TYPE_${QUANTIZATION^^},logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/preprocessing/config.pbtxt \
-        tokenizer_dir:${MODEL_DIR},triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:/models/multimodal_encoders/1/,engine_dir:/models/tensorrt_llm/1/,max_num_images:1
+        tokenizer_dir:${MODEL_DIR},triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:/models/multimodal_encoders/1/,engine_dir:/models/tensorrt_llm/1/,max_num_images:1 || echo "Failed to generate preprocessing config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/postprocessing/config.pbtxt \
-        tokenizer_dir:${MODEL_DIR},triton_max_batch_size:8,postprocessing_instance_count:1
+        tokenizer_dir:${MODEL_DIR},triton_max_batch_size:8,postprocessing_instance_count:1 || echo "Failed to generate postprocessing config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/ensemble/config.pbtxt \
-        triton_max_batch_size:8,logits_datatype:TYPE_FP32
+        triton_max_batch_size:8,logits_datatype:TYPE_FP32 || echo "Failed to generate ensemble config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt \
-        triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32
+        triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm_bls config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/multimodal_encoders/config.pbtxt \
-        triton_max_batch_size:8,visual_model_path:/models/multimodal_encoders/1/,encoder_input_features_data_type:TYPE_${QUANTIZATION^^},hf_model_path:${MODEL_DIR}
+        triton_max_batch_size:8,visual_model_path:/models/multimodal_encoders/1/,encoder_input_features_data_type:TYPE_${QUANTIZATION^^},hf_model_path:${MODEL_DIR} || echo "Failed to generate multimodal_encoders config"
+    # Verify the directory is populated
+    if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
+        echo "Error: /models/multimodal_ifb is still empty after population attempt. Check fill_template.py or mounts."
+        exit 1
+    fi
 fi
 
 # Check if model and engines exist
