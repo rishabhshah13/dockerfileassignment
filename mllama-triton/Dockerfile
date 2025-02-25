@@ -21,29 +21,6 @@ RUN git clone --branch main https://github.com/triton-inference-server/tensorrtl
 COPY scripts/build_engines.py .
 COPY scripts/entrypoint.sh .
 
-# Copy Triton model repo
-COPY model_repo/multimodal_ifb /models/multimodal_ifb/
-
-# # Fill Triton configs dynamically based on model (default to meta-llama for now)
-# RUN python3 /app/tensorrtllm_backend/tools/fill_template.py \
-#     -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
-#     triton_backend:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:/models/tensorrt_llm/1/,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:TYPE_INT4,logits_datatype:TYPE_FP32 && \
-#     python3 /app/tensorrtllm_backend/tools/fill_template.py \
-#     -i /models/multimodal_ifb/preprocessing/config.pbtxt \
-#     tokenizer_dir:/models/meta-llama-Llama-3.2-11B-Vision-Instruct,triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:/models/multimodal_encoders/1/,engine_dir:/models/tensorrt_llm/1/,max_num_images:1 && \
-#     python3 /app/tensorrtllm_backend/tools/fill_template.py \
-#     -i /models/multimodal_ifb/postprocessing/config.pbtxt \
-#     tokenizer_dir:/models/meta-llama-Llama-3.2-11B-Vision-Instruct,triton_max_batch_size:8,postprocessing_instance_count:1 && \
-#     python3 /app/tensorrtllm_backend/tools/fill_template.py \
-#     -i /models/multimodal_ifb/ensemble/config.pbtxt \
-#     triton_max_batch_size:8,logits_datatype:TYPE_FP32 && \
-#     python3 /app/tensorrtllm_backend/tools/fill_template.py \
-#     -i /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt \
-#     triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32 && \
-#     python3 /app/tensorrtllm_backend/tools/fill_template.py \
-#     -i /models/multimodal_ifb/multimodal_encoders/config.pbtxt \
-#     triton_max_batch_size:8,visual_model_path:/models/multimodal_encoders/1/,encoder_input_features_data_type:TYPE_INT4,hf_model_path:/models/meta-llama-Llama-3.2-11B-Vision-Instruct
-
 # Set HF_TOKEN as env var for runtime
 ARG HF_TOKEN
 ENV HF_TOKEN=${HF_TOKEN}
