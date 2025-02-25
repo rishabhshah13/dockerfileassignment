@@ -14,7 +14,7 @@ RUN pip3 install compressed-tensors
 # Clone TensorRT-LLM and tensorrtllm_backend
 RUN git clone --branch v0.17.0 https://github.com/NVIDIA/TensorRT-LLM.git /app/tensorrt_llm && \
     cd /app/tensorrt_llm && git submodule update --init --recursive
-RUN git clone --branch main https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend && \
+RUN git clone --branch triton-llm/v0.17.0 https://github.com/triton-inference-server/tensorrtllm_backend.git /app/tensorrtllm_backend && \
     cd /app/tensorrtllm_backend && git submodule update --init --recursive
 
 # Copy scripts
