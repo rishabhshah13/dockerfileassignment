@@ -39,7 +39,6 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         mkdir -p /models/multimodal_ifb/
     else
         echo "Copying all_models/inflight_batcher_llm/ to /models/multimodal_ifb/tensorrt_llm..."
-        # cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/ || echo "Failed to copy tensorrt_llm"
         cp -r all_models/inflight_batcher_llm/* /models/multimodal_ifb/ || echo "Failed to copy contents of inflight_batcher_llm"
 
     fi
@@ -58,16 +57,16 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/ || echo "Failed to copy multimodal_encoders"
     fi
 
-    # Create empty .pbtxt files if they don’t exist
-    mkdir -p /models/multimodal_ifb/preprocessing
-    mkdir -p /models/multimodal_ifb/postprocessing
-    mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
-    touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
-    touch /models/multimodal_ifb/preprocessing/config.pbtxt
-    touch /models/multimodal_ifb/postprocessing/config.pbtxt
-    touch /models/multimodal_ifb/ensemble/config.pbtxt
-    touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
-    touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
+    # # Create empty .pbtxt files if they don’t exist
+    # mkdir -p /models/multimodal_ifb/preprocessing
+    # mkdir -p /models/multimodal_ifb/postprocessing
+    # mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
+    # touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
+    # touch /models/multimodal_ifb/preprocessing/config.pbtxt
+    # touch /models/multimodal_ifb/postprocessing/config.pbtxt
+    # touch /models/multimodal_ifb/ensemble/config.pbtxt
+    # touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
+    # touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
 
     # Verify the directories and files are readable and writable
     if [ ! -r /models/multimodal_ifb ] || [ ! -w /models/multimodal_ifb ]; then
