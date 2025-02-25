@@ -108,8 +108,8 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH},encoder_model_path:${ENCODER_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
 
     # Debug: Check generated tensorrt_llm config
-    echo "Debug: Contents of /models/multimodal_ifb/tensorrt_llm/config.pbtxt:"
-    cat /models/multimodal_ifb/tensorrt_llm/config.pbtxt || echo "Failed to read tensorrt_llm config"
+    # echo "Debug: Contents of /models/multimodal_ifb/tensorrt_llm/config.pbtxt:"
+    # cat /models/multimodal_ifb/tensorrt_llm/config.pbtxt || echo "Failed to read tensorrt_llm config"
 
     # Check if model and engines exist
     if [ ! -d "$MODEL_DIR" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
@@ -172,8 +172,8 @@ else
         platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH},encoder_model_path:${ENCODER_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
 
     # Debug: Check generated tensorrt_llm config
-    echo "Debug: Contents of /models/multimodal_ifb/tensorrt_llm/config.pbtxt:"
-    cat /models/multimodal_ifb/tensorrt_llm/config.pbtxt || echo "Failed to read tensorrt_llm config"
+    # echo "Debug: Contents of /models/multimodal_ifb/tensorrt_llm/config.pbtxt:"
+    # cat /models/multimodal_ifb/tensorrt_llm/config.pbtxt || echo "Failed to read tensorrt_llm config"
 
     # Check if model and engines exist
     if [ ! -d "$MODEL_DIR" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
