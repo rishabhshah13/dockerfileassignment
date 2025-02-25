@@ -34,32 +34,39 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
     
     # Copy base structures from tensorrtllm_backend/all_models, ensuring correct subdirectories
     cd /app/tensorrtllm_backend
+    if [ ! -d "all_models/inflight_batcher_llm/tensorrt_llm" ]; then
+        echo "Warning: all_models/inflight_batcher_llm/tensorrt_llm not found. Creating empty structure..."
+        mkdir -p /models/multimodal_ifb/
+    else
+        echo "Copying all_models/inflight_batcher_llm/ to /models/multimodal_ifb/tensorrt_llm..."
+        # cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/ || echo "Failed to copy tensorrt_llm"
+        cp -r all_models/inflight_batcher_llm/ /models/multimodal_ifb/ || echo "Failed to contents of inflight_batcher_llm"
+    fi
+    if [ ! -d "all_models/multimodal/ensemble" ]; then
+        echo "Warning: all_models/multimodal/ensemble not found. Creating empty structure..."
+        mkdir -p /models/multimodal_ifb/ensemble
+    else
+        echo "Copying all_models/multimodal/ensemble to /models/multimodal_ifb/ensemble..."
+        cp -r all_models/multimodal/ensemble /models/multimodal_ifb/ || echo "Failed to copy ensemble"
+    fi
+    if [ ! -d "all_models/multimodal/multimodal_encoders" ]; then
+        echo "Warning: all_models/multimodal/multimodal_encoders not found. Creating empty structure..."
+        mkdir -p /models/multimodal_ifb/multimodal_encoders
+    else
+        echo "Copying all_models/multimodal/multimodal_encoders to /models/multimodal_ifb/multimodal_encoders..."
+        cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/ || echo "Failed to copy multimodal_encoders"
+    fi
 
-    cp -r all_models/inflight_batcher_llm/ /models/multimodal_ifb/ || echo "Failed to copy tensorrt_llm"
-
-    
-
-    # if [ ! -d "all_models/inflight_batcher_llm/tensorrt_llm" ]; then
-    #     echo "Warning: all_models/inflight_batcher_llm/tensorrt_llm not found. Creating empty structure..."
-    #     mkdir -p /models/multimodal_ifb/tensorrt_llm
-    # else
-    #     echo "Copying all_models/inflight_batcher_llm/tensorrt_llm to /models/multimodal_ifb/tensorrt_llm..."
-    #     cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/ || echo "Failed to copy tensorrt_llm"
-    # fi
-    # if [ ! -d "all_models/multimodal/ensemble" ]; then
-    #     echo "Warning: all_models/multimodal/ensemble not found. Creating empty structure..."
-    #     mkdir -p /models/multimodal_ifb/ensemble
-    # else
-    #     echo "Copying all_models/multimodal/ensemble to /models/multimodal_ifb/ensemble..."
-    #     cp -r all_models/multimodal/ensemble /models/multimodal_ifb/ || echo "Failed to copy ensemble"
-    # fi
-    # if [ ! -d "all_models/multimodal/multimodal_encoders" ]; then
-    #     echo "Warning: all_models/multimodal/multimodal_encoders not found. Creating empty structure..."
-    #     mkdir -p /models/multimodal_ifb/multimodal_encoders
-    # else
-    #     echo "Copying all_models/multimodal/multimodal_encoders to /models/multimodal_ifb/multimodal_encoders..."
-    #     cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/ || echo "Failed to copy multimodal_encoders"
-    # fi
+    # Create empty .pbtxt files if they don’t exist
+    mkdir -p /models/multimodal_ifb/preprocessing
+    mkdir -p /models/multimodal_ifb/postprocessing
+    mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
+    touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
+    touch /models/multimodal_ifb/preprocessing/config.pbtxt
+    touch /models/multimodal_ifb/postprocessing/config.pbtxt
+    touch /models/multimodal_ifb/ensemble/config.pbtxt
+    touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
+    touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
 
     # Verify the directories and files are readable and writable
     if [ ! -r /models/multimodal_ifb ] || [ ! -w /models/multimodal_ifb ]; then
