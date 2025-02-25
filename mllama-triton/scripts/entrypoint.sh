@@ -33,23 +33,35 @@ VISUAL_ENGINE_PATH="/models/multimodal_encoders/1/"
 HF_MODEL_PATH="${MODEL_DIR}"
 
 # Ensure /models/multimodal_ifb exists and is populated dynamically
-if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
+if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
     echo "Populating /models/multimodal_ifb for $MODEL_NAME with $QUANTIZATION quantization..."
     mkdir -p /models/multimodal_ifb
     
     # Copy base structures from tensorrtllm_backend/all_models, ensuring correct subdirectories
     cd /app/tensorrtllm_backend
-    cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/
-    cp -r all_models/multimodal/ensemble /models/multimodal_ifb/
-    cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/
+    if [ ! -d "all_models/inflight_batcher_llm/tensorrt_llm" ]; then
+        echo "Warning: all_models/inflight_batcher_llm/tensorrt_llm not found. Creating empty structure..."
+        mkdir -p /models/multimodal_ifb/tensorrt_llm
+    else
+        cp -r all_models/inflight_batcher_llm/tensorrt_llm /models/multimodal_ifb/ || echo "Failed to copy tensorrt_llm"
+    fi
+    if [ ! -d "all_models/multimodal/ensemble" ]; then
+        echo "Warning: all_models/multimodal/ensemble not found. Creating empty structure..."
+        mkdir -p /models/multimodal_ifb/ensemble
+    else
+        cp -r all_models/multimodal/ensemble /models/multimodal_ifb/ || echo "Failed to copy ensemble"
+    fi
+    if [ ! -d "all_models/multimodal/multimodal_encoders" ]; then
+        echo "Warning: all_models/multimodal/multimodal_encoders not found. Creating empty structure..."
+        mkdir -p /models/multimodal_ifb/multimodal_encoders
+    else
+        cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/ || echo "Failed to copy multimodal_encoders"
+    fi
 
     # Create empty .pbtxt files if they don’t exist to ensure fill_template.py can modify them
-    mkdir -p /models/multimodal_ifb/tensorrt_llm
     mkdir -p /models/multimodal_ifb/preprocessing
     mkdir -p /models/multimodal_ifb/postprocessing
-    mkdir -p /models/multimodal_ifb/ensemble
     mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
-    mkdir -p /models/multimodal_ifb/multimodal_encoders
     touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
     touch /models/multimodal_ifb/preprocessing/config.pbtxt
     touch /models/multimodal_ifb/postprocessing/config.pbtxt
@@ -57,10 +69,10 @@ if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
     touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
     touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
 
-    # Verify the directories and files are readable
-    if [ ! -r /models/multimodal_ifb ] || [ ! -r /models/multimodal_ifb/* ]; then
-        echo "Error: /models/multimodal_ifb or its contents are not readable. Fixing permissions..."
-        chmod -R +r /models/multimodal_ifb
+    # Verify the directories and files are readable and writable
+    if [ ! -r /models/multimodal_ifb ] || [ ! -w /models/multimodal_ifb ]; then
+        echo "Error: /models/multimodal_ifb is not readable or writable. Fixing permissions..."
+        chmod -R u+rw /models/multimodal_ifb
     fi
 
     # Verify fill_template.py exists and is executable in /app/tensorrtllm_backend/tools
@@ -96,7 +108,7 @@ if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
         triton_max_batch_size:8,visual_model_path:${VISUAL_ENGINE_PATH},encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
 
     # Verify the directory is populated
-    if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
+    if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         echo "Error: /models/multimodal_ifb is still empty after population attempt. Check cp commands, fill_template.py, or mounts."
         exit 1
     fi
