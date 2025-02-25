@@ -44,18 +44,18 @@ if [ -z "$(ls -A /models/multimodal_ifb)" ]; then
     cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/
 
     # Create empty .pbtxt files if they don’t exist to ensure fill_template.py can modify them
-    # mkdir -p /models/multimodal_ifb/tensorrt_llm
-    # mkdir -p /models/multimodal_ifb/preprocessing
-    # mkdir -p /models/multimodal_ifb/postprocessing
-    # mkdir -p /models/multimodal_ifb/ensemble
-    # mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
-    # mkdir -p /models/multimodal_ifb/multimodal_encoders
-    # touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
-    # touch /models/multimodal_ifb/preprocessing/config.pbtxt
-    # touch /models/multimodal_ifb/postprocessing/config.pbtxt
-    # touch /models/multimodal_ifb/ensemble/config.pbtxt
-    # touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
-    # touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
+    mkdir -p /models/multimodal_ifb/tensorrt_llm
+    mkdir -p /models/multimodal_ifb/preprocessing
+    mkdir -p /models/multimodal_ifb/postprocessing
+    mkdir -p /models/multimodal_ifb/ensemble
+    mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
+    mkdir -p /models/multimodal_ifb/multimodal_encoders
+    touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
+    touch /models/multimodal_ifb/preprocessing/config.pbtxt
+    touch /models/multimodal_ifb/postprocessing/config.pbtxt
+    touch /models/multimodal_ifb/ensemble/config.pbtxt
+    touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
+    touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
 
     # Verify the directories and files are readable
     if [ ! -r /models/multimodal_ifb ] || [ ! -r /models/multimodal_ifb/* ]; then
