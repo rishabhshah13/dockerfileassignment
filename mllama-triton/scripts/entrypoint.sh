@@ -6,7 +6,8 @@ MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-11B-Vision"}
 MODEL_DIR="/models/$(echo "$MODEL_NAME" | sed 's/\//-/g')"
 
 # For MLLaMA, use bfloat16
-ENCODER_INPUT_FEATURES_DTYPE="TYPE_BF16"
+ENCODER_INPUT_FEATURES_DTYPE="TYPE_INT4"
+# ENCODER_INPUT_FEATURES_DTYPE="TYPE_BF16"
 
 # Set paths for models and engines
 ENGINE_PATH="/models/tensorrt_llm/1/"
@@ -39,7 +40,7 @@ if [ ! -d "$MODEL_DIR" ] || [ ! -d "/model_engine/vision" ] || [ ! -d "/model_en
     
     if [ ! -d "/model_engine/vision" ] || [ ! -d "/model_engine/llm" ]; then
         echo "Building engines for MLLaMA..."
-        python3 build_engines.py --model_path "$MODEL_DIR" --output_dir /model_engine --max_batch_size 8
+        python3 build_engines.py --model_path "$MODEL_DIR" --output_dir /model_engine --max_batch_size 1
         echo "Engines built successfully!"
     else
         echo "Engines already exist, skipping build."
@@ -85,5 +86,5 @@ python3 fill_template.py -i /models/multimodal_ifb/multimodal_encoders/config.pb
 
 # Start Triton Server
 echo "Starting Triton Server..."
-export PMIX_MCA_gds=hash  # To avoid MPI_Init_thread errors
+# export PMIX_MCA_gds=hash  # To avoid MPI_Init_thread errors
 tritonserver --model-repository=/models/multimodal_ifb --log-verbose=1 --model-control-mode=explicit
