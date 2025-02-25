@@ -13,6 +13,8 @@ def build_vision_engine(model_path, output_dir, max_batch_size, tp_size, quantiz
     os.makedirs(f"{output_dir}/vision/", exist_ok=True)
     cmd = (
         f"CUDA_VISIBLE_DEVICES=0,1 "
+        f"MPI_LOCALNRANKS=2 "
+        f"OMP_NUM_THREADS=1 "
         f"python3 /app/tensorrt_llm/examples/multimodal/build_visual_engine.py "
         f"--model_type mllama "
         f"--model_path {model_path} "
@@ -28,10 +30,12 @@ def build_decoder_engine(model_path, output_dir, max_batch_size, tp_size, quanti
     # MLLaMA requires bfloat16
     cmd1 = (
         f"CUDA_VISIBLE_DEVICES=0,1 "
+        f"MPI_LOCALNRANKS=2 "
+        f"OMP_NUM_THREADS=1 "
         f"python3 /app/tensorrt_llm/examples/mllama/convert_checkpoint.py "
         f"--model_dir {model_path} "
         f"--output_dir {checkpoint_dir} "
-        f"--dtype bfloat16"  # MLLaMA requires bfloat16
+        f"--dtype float16"  # MLLaMA requires bfloat16
     )
     run_command(cmd1, "Failed to convert checkpoint")
 
