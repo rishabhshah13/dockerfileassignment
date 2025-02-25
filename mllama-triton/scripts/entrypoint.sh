@@ -5,7 +5,7 @@ set -e
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-11B-Vision-Instruct"}
 MODEL_DIR="/models/$(echo "$MODEL_NAME" | sed 's/\//-/g')"
 
-# Map model to quantization and data types for engine building
+# Map model to quantization and data types for engine building and Triton compatibility
 case "$MODEL_NAME" in
     "meta-llama/Llama-3.2-11B-Vision-Instruct")
         QUANTIZATION="int4"
@@ -13,7 +13,7 @@ case "$MODEL_NAME" in
         ;;
     "neuralmagic/Llama-3.2-11B-Vision-Instruct-FP8-dynamic")
         QUANTIZATION="fp8"
-        ENCODER_INPUT_FEATURES_DTYPE="TYPE_FP8"
+        ENCODER_INPUT_FEATURES_DTYPE="TYPE_FP16"  # Use FP16 as proxy for FP8, since Triton 2.54.0 doesn’t support TYPE_FP8
         ;;
     "unsloth/Llama-3.2-11B-Vision-Instruct-unsloth-bnb-4bit")
         QUANTIZATION="int4"
@@ -58,16 +58,28 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         cp -r all_models/multimodal/multimodal_encoders /models/multimodal_ifb/ || echo "Failed to copy multimodal_encoders"
     fi
 
-    # Create empty .pbtxt files if they don’t exist to ensure fill_template.py can modify them
+    # Create minimal template .pbtxt files with expected keys for fill_template.py
     mkdir -p /models/multimodal_ifb/preprocessing
     mkdir -p /models/multimodal_ifb/postprocessing
     mkdir -p /models/multimodal_ifb/tensorrt_llm_bls
-    touch /models/multimodal_ifb/tensorrt_llm/config.pbtxt
-    touch /models/multimodal_ifb/preprocessing/config.pbtxt
-    touch /models/multimodal_ifb/postprocessing/config.pbtxt
-    touch /models/multimodal_ifb/ensemble/config.pbtxt
-    touch /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
-    touch /models/multimodal_ifb/multimodal_encoders/config.pbtxt
+    echo 'name: "tensorrt_llm"
+platform: "tensorrt_llm"
+max_batch_size: 0' > /models/multimodal_ifb/tensorrt_llm/config.pbtxt
+    echo 'name: "preprocessing"
+platform: "python"
+max_batch_size: 0' > /models/multimodal_ifb/preprocessing/config.pbtxt
+    echo 'name: "postprocessing"
+platform: "python"
+max_batch_size: 0' > /models/multimodal_ifb/postprocessing/config.pbtxt
+    echo 'name: "ensemble"
+platform: "ensemble"
+max_batch_size: 0' > /models/multimodal_ifb/ensemble/config.pbtxt
+    echo 'name: "tensorrt_llm_bls"
+platform: "tensorrt_llm_bls"
+max_batch_size: 0' > /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt
+    echo 'name: "multimodal_encoders"
+platform: "tensorrt_llm"
+max_batch_size: 0' > /models/multimodal_ifb/multimodal_encoders/config.pbtxt
 
     # Verify the directories and files are readable and writable
     if [ ! -r /models/multimodal_ifb ] || [ ! -w /models/multimodal_ifb ]; then
@@ -86,26 +98,26 @@ if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
         chmod +x /app/tensorrtllm_backend/tools/fill_template.py
     fi
 
-    # Run fill_template.py to generate Triton configs with error checking
+    # Run fill_template.py to generate Triton configs with error checking and backend specification
     cd /app/tensorrtllm_backend/tools
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm/config.pbtxt \
-        triton_backend:tensorrtllm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:${ENGINE_PATH},enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm config"
+        triton_backend:tensorrtllm,platform:tensorrt_llm,triton_max_batch_size:8,decoupled_mode:False,max_beam_width:1,engine_dir:${ENGINE_PATH},enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:0,enable_chunked_context:False,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/preprocessing/config.pbtxt \
-        tokenizer_dir:${HF_MODEL_PATH},triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:${VISUAL_ENGINE_PATH},engine_dir:${ENGINE_PATH},max_num_images:1 || echo "Failed to generate preprocessing config"
+        platform:python,tokenizer_dir:${HF_MODEL_PATH},triton_max_batch_size:8,preprocessing_instance_count:1,visual_model_path:${VISUAL_ENGINE_PATH},engine_dir:${ENGINE_PATH},max_num_images:1 || echo "Failed to generate preprocessing config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/postprocessing/config.pbtxt \
-        tokenizer_dir:${HF_MODEL_PATH},triton_max_batch_size:8,postprocessing_instance_count:1 || echo "Failed to generate postprocessing config"
+        platform:python,tokenizer_dir:${HF_MODEL_PATH},triton_max_batch_size:8,postprocessing_instance_count:1 || echo "Failed to generate postprocessing config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/ensemble/config.pbtxt \
-        triton_max_batch_size:8,logits_datatype:TYPE_FP32 || echo "Failed to generate ensemble config"
+        platform:ensemble,triton_max_batch_size:8,logits_datatype:TYPE_FP32 || echo "Failed to generate ensemble config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/tensorrt_llm_bls/config.pbtxt \
-        triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm_bls config"
+        platform:tensorrt_llm_bls,triton_max_batch_size:8,decoupled_mode:False,bls_instance_count:1,accumulate_tokens:False,tensorrt_llm_model_name:tensorrt_llm,multimodal_encoders_name:multimodal_encoders,logits_datatype:TYPE_FP32 || echo "Failed to generate tensorrt_llm_bls config"
     python3 fill_template.py \
         -i /models/multimodal_ifb/multimodal_encoders/config.pbtxt \
-        triton_max_batch_size:8,visual_model_path:${VISUAL_ENGINE_PATH},encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
+        platform:tensorrt_llm,visual_model_path:${VISUAL_ENGINE_PATH},triton_max_batch_size:8,encoder_input_features_data_type:${ENCODER_INPUT_FEATURES_DTYPE},hf_model_path:${HF_MODEL_PATH} || echo "Failed to generate multimodal_encoders config"
 
     # Verify the directory is populated
     if [ -z "$(ls -A /models/multimodal_ifb 2>/dev/null)" ]; then
