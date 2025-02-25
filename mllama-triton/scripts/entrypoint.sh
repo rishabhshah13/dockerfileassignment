@@ -5,6 +5,9 @@ set -e
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-11B-Vision"}
 MODEL_DIR="/models/$(echo "$MODEL_NAME" | sed 's/\//-/g')"
 
+export LD_LIBRARY_PATH=/opt/hpcx/ucx/lib:$LD_LIBRARY_PATH
+# export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+
 # For MLLaMA, use bfloat16
 ENCODER_INPUT_FEATURES_DTYPE="TYPE_INT4"
 # ENCODER_INPUT_FEATURES_DTYPE="TYPE_BF16"
