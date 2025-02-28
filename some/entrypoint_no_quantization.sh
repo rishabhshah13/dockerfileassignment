@@ -7,8 +7,7 @@
 # TENSORRT_LLM_DIR="/app"
 HF_MODEL_PATH="/model_data/hf_models/Llama-3.2-11B-Vision"
 CKPT_DIR="/model_data/trt_ckpts/Llama-3.2-11B-Vision"
-# ENGINE_PATH="/model_data/trt_engines/Llama-3.2-11B-Vision/llm/bf16/2-gpu"
-ENGINE_PATH="/model_data/trt_engines/Llama-3.2-11B-Vision/llm/int8/2-gpu"
+ENGINE_PATH="/model_data/trt_engines/Llama-3.2-11B-Vision/llm/bf16/2-gpu"
 VISUAL_ENGINE_PATH="/model_data/trt_engines/Llama-3.2-11B-Vision/vision/bf16/1-gpu"
 MODEL_REPO_DIR="/app/model_data/multimodal_ifb"
 
@@ -65,64 +64,29 @@ ls -la "$VISUAL_ENGINE_PATH"
 if [ ! -d "$ENGINE_PATH" ] || [ ! -d "$VISUAL_ENGINE_PATH" ]; then
     echo "Building engines..."
 
-    # python "/app/examples/mllama/convert_checkpoint.py" \
-    #     --model_dir "$HF_MODEL_PATH" \
-    #     --output_dir "$CKPT_DIR" \
-    #     --dtype bfloat16 \
-    #     --workers 2
-    
-    # python "/app/examples/quantization/quantize.py" \
-    #     --model_dir "$HF_MODEL_PATH" \
-    #     --output_dir "$CKPT_DIR_INT8" \
-    #     --dtype bfloat16 \
-    #     --qformat int8_sq \
-    #     # --calib_size 32 \
-    #     # --calib_dataset scienceqa
-
-    # "trtllm-build" \
-    #     --checkpoint_dir "$CKPT_DIR_INT8" \
-    #     --output_dir "$ENGINE_PATH" \
-    #     --max_num_tokens 4096 \
-    #     --max_seq_len 2048 \
-    #     --gemm_plugin auto \
-    #     --max_batch_size 1 \
-    #     --max_encoder_input_len 6404 \
-    #     --workers 2
-            
-    # python "/app/examples/multimodal/build_visual_engine.py" \
-    #     --model_type mllama \
-    #     --model_path "$HF_MODEL_PATH" \
-    #     --output_dir "$VISUAL_ENGINE_PATH" \
-    #     --max_batch_size 1
-
-    # 1. Convert HF checkpoint to TRT-LLM checkpoint with INT8 weight-only quantization.
     python "/app/examples/mllama/convert_checkpoint.py" \
         --model_dir "$HF_MODEL_PATH" \
         --output_dir "$CKPT_DIR" \
         --dtype bfloat16 \
-        --use_weight_only \
-        --weight_only_precision int8 \
-        --workers 2
+        --workers 2 \
+        # --pp_size 1 \
+        # --tp_size 2
 
-    # 2. Build the TensorRT engines using the INT8 weight-only checkpoint.
-    trtllm-build \
+    "trtllm-build" \
         --checkpoint_dir "$CKPT_DIR" \
         --output_dir "$ENGINE_PATH" \
-        --max_num_tokens 2048 \
+        --max_num_tokens 4096 \
         --max_seq_len 2048 \
         --gemm_plugin auto \
         --max_batch_size 1 \
         --max_encoder_input_len 6404 \
-        --workers 2 
-
-    # 3. Build the visual engine (for the vision encoder part) for MLLaMA.
+        --workers 2
+        
     python "/app/examples/multimodal/build_visual_engine.py" \
         --model_type mllama \
         --model_path "$HF_MODEL_PATH" \
         --output_dir "$VISUAL_ENGINE_PATH" \
         --max_batch_size 1
-
-
 fi
 
 # Set up model repository
@@ -138,8 +102,8 @@ cp "/app/all_models/multimodal/multimodal_encoders" "$MODEL_REPO_DIR/"  -r
 # Ensure directories exist
 mkdir -p "$MODEL_REPO_DIR/tensorrt_llm/1"
 mkdir -p "$MODEL_REPO_DIR/multimodal_encoders/1"
-cp "$ENGINE_PATH/*" "$MODEL_REPO_DIR/tensorrt_llm/1/"
-cp "$VISUAL_ENGINE_PATH/*" "$MODEL_REPO_DIR/multimodal_encoders/1/"
+cp "$ENGINE_PATH/rank0.engine" "$MODEL_REPO_DIR/tensorrt_llm/1/"
+cp "$VISUAL_ENGINE_PATH/visual_encoder.engine" "$MODEL_REPO_DIR/multimodal_encoders/1/"
 
 
 
@@ -187,29 +151,15 @@ export PMIX_MCA_gds=hash
 export CUDA_VISIBLE_DEVICES=0,1
 
 # Start Triton Server
-# tritonserver \
-#     --model-repository="$MODEL_REPO_DIR" \
-#     --grpc-port=8001 \
-#     --http-port=8000 \
-#     --metrics-port=8002 
-#     # --log-verbose 1 
-#     # --world_size 2 \
-#     # --tensorrt_llm_model_name tensorrt_llm,multimodal_encoders \
+tritonserver \
+    --model-repository="$MODEL_REPO_DIR" \
+    --grpc-port=8001 \
+    --http-port=8000 \
+    --metrics-port=8002 
+    # --log-verbose 1 
+    # --world_size 2 \
+    # --tensorrt_llm_model_name tensorrt_llm,multimodal_encoders \
 
-
-export OMPI_ALLOW_RUN_AS_ROOT=1
-export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
-echo "Starting Triton server with 2 MPI processes for LLM split across GPUs..."
-mpirun -np 2 --map-by socket --allow-run-as-root \
-    -x PMIX_MCA_gds=hash \
-    -x CUDA_VISIBLE_DEVICES=0,1 \
-    tritonserver \
-        --model-repository="$MODEL_REPO_DIR" \
-        --grpc-port=8001 \
-        --http-port=8000 \
-        --metrics-port=8002 \
-        --log-verbose 1 &
 
 TRITON_PID=$!
 
