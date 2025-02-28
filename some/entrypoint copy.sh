@@ -17,7 +17,7 @@ ls -la "/app/tensorrtllm_backend/all_models"
 
 
 
-# pip install tritonclient[http, cuda]
+# pip install tritonclient[http] tabulate
 # pip install tabulate
 
 # Login to Hugging Face if token is provided
@@ -178,7 +178,8 @@ tritonserver \
     # --disable-auto-complete-config \
     # --cuda-memory-pool-byte-size=0:100000000 \
     # --cuda-memory-pool-byte-size=1:100000000 \
-    --multimodal_gpu0_cuda_mem_pool_bytes 100000000 \
+    # --multimodal_gpu0_cuda_mem_pool_bytes 100000000 \
+    --multimodal_gpu0_cuda_mem_pool_bytes 300000000
     # --model-control-mode=none \
     --tensorrt_llm_model_name tensorrt_llm,multimodal_encoders \
     -- world_size 2 
